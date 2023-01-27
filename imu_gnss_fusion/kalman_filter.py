@@ -35,7 +35,10 @@ class KalmanFilter():
         self.set_initial_state(VECTR_INIT_STATE)
         self.set_initial_covariance(MAT_INIT_COVAR)
 
-    
+
+    #
+    # ~~~~~             KALMAN FILTER - PREDICT              ~~~~~
+    #     
     def kalman_predict(self, VECTR_CNTRL: np.array)-> None:
         '''
         Predict the next state estimate based on current state estimate and 
@@ -47,18 +50,16 @@ class KalmanFilter():
         self.extrapolate_state(VECTR_CNTRL)
         self.extrapolate_covar(VECTR_CNTRL)
 
-        pass           
 
-
-    def is_valid_cntrl_vector(self, VECTR_CNTRL: np.array)->None:
+    def is_valid_cntrl_vectr(self, VECTR_CNTRL: np.array)->None:
         '''
         Raise exception if control vector is dimensionally invalid
 
         :param @VECTR_CNTRL:                 @VECTR_CNTRL
         '''
         if(not VECTR_CNTRL.size == self._ROWS_CNTRL_VECTR) or (1 not in VECTR_CNTRL.shape):
-            f"State Vector must have dimension ({self._ROWS_CNTRL_VECTR} x 1); \
-                Current dimensions : ({VECTR_CNTRL.shape[0]}x{VECTR_CNTRL.shape[1]})"
+            raise(InvalidVectorDimensions(f"Control Input Vector must have dimension ({self._ROWS_CNTRL_VECTR} x 1); \
+                Current dimensions : ({VECTR_CNTRL.shape[0]}x{VECTR_CNTRL.shape[1]})"))
         pass
 
 
@@ -85,6 +86,52 @@ class KalmanFilter():
         )
 
 
+    #
+    # ~~~~~             KALMAN FILTER - UPDATE              ~~~~~
+    # 
+    def kalman_update(self, 
+                    VECTR_MEAS: np.array,
+                    **kwargs) -> None:
+        '''
+        Combine measurements (VECTR_MEAS) with last state estimate 
+        (VECTR_STATE) to improve estimate.
+
+        :param @VECTR_MEAS:                 vector containing measurements for state estimate update
+        :**(kwargs) @MAT_MEAS_UNCERT:       provide updated measurement uncertainty if applicable
+        '''
+        self.is_valid_meas_vectr(VECTR_MEAS)
+
+        if('MAT_MEAS_UNCERT' in kwargs.key()):
+            self.set_measurement_uncertainty(kwargs['MAT_MEAS_UNCERT'])
+
+        self.compute_kalman_gain()
+
+
+    def is_valid_meas_vectr(self, VECTR_MEAS: np.array) -> None:
+        '''
+        Raise exception is measurement vector  is dimensionally invalid
+        '''
+        if(not VECTR_MEAS.size == self._ROWS_MEAS_VECTR) or (1 not in VECTR_MEAS.shape):
+            raise(InvalidVectorDimensions(f"Measurement Vector must have dimension ({self._ROWS_CNTRL_VECTR} x 1); \
+                Current dimensions : ({VECTR_MEAS.shape[0]}x{VECTR_MEAS.shape[1]})"))
+        pass
+
+    
+    def compute_kalman_gain(self):
+        '''
+        Compute the Kalman Gain
+        '''
+        _PH_T = np.matmul(self.MAT_COVAR, self._MAT_OBSRVN.T)
+        _HPH_T = np.matmul(self._MAT_OBSRVN, _PH_T)
+        self._KALMAN_GAIN = np.matmul(_PH_T,
+                                    np.linalg.inv(
+                                        _HPH_T + \
+                                        self._MAT_MEAS_UNCERT
+                                    ))
+        
+    #
+    # ~~~~~             KALMAN FILTER - SETTERS             ~~~~~
+    # 
 
     # Setter Method
     def set_state_transition_mat(self, MAT_STATE_TRANSTN : np.matrix) -> None:

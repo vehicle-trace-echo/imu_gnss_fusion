@@ -4,7 +4,7 @@ import numpy as np
 
 class KalmanFilter():
     '''
-    Linear Kalman Filter algorithm.
+    Linear Kalman Filter Implementation.
     @Notes: 
     '''
     def __init__(self,
@@ -36,6 +36,55 @@ class KalmanFilter():
         self.set_initial_covariance(MAT_INIT_COVAR)
 
     
+    def kalman_predict(self, VECTR_CNTRL: np.array)-> None:
+        '''
+        Predict the next state estimate based on current state estimate and 
+        current control inputs
+
+        :param @VECTR_CNTRL:                 vector containing control inputs
+        '''
+        self.is_valid_cntrl_vectr(VECTR_CNTRL)
+        self.extrapolate_state(VECTR_CNTRL)
+        self.extrapolate_covar(VECTR_CNTRL)
+
+        pass           
+
+
+    def is_valid_cntrl_vector(self, VECTR_CNTRL: np.array)->None:
+        '''
+        Raise exception if control vector is dimensionally invalid
+
+        :param @VECTR_CNTRL:                 @VECTR_CNTRL
+        '''
+        if(not VECTR_CNTRL.size == self._ROWS_CNTRL_VECTR) or (1 not in VECTR_CNTRL.shape):
+            f"State Vector must have dimension ({self._ROWS_CNTRL_VECTR} x 1); \
+                Current dimensions : ({VECTR_CNTRL.shape[0]}x{VECTR_CNTRL.shape[1]})"
+        pass
+
+
+    def extrapolate_state(self, VECTR_CNTRL:np.array) -> None:
+        '''
+        Extrapolate state estimate
+
+        :param @VECTR_CNTRL:                 @VECTR_CNTRL
+        '''
+        self.VECTR_STATE = np.matmul(self._MAT_STATE_TRANSTN, self.VECTR_STATE) + \
+                    np.matmul(self._MAT_CNTRL, VECTR_CNTRL)
+
+
+    def extrapolate_covar(self) -> None:
+        '''
+        Extrapolate covariance matrix
+        '''
+        self.MAT_COVAR = np.matmul( 
+                            np.matmul(
+                                self._MAT_STATE_TRANSTN,
+                                self.MAT_COVAR
+                            ), self._MAT_STATE_TRANSTN.T + \
+                                self._MAT_PROCESS_NOSE
+        )
+
+
 
     # Setter Method
     def set_state_transition_mat(self, MAT_STATE_TRANSTN : np.matrix) -> None:
@@ -146,6 +195,7 @@ class KalmanFilter():
         self._MAT_MEAS_UNCERT = MAT_MEAS_UNCERT
 
 
+    # Setter Method
     def set_initial_state(self, VECTR_INIT_STATE: np.array) -> None:
         '''
         Verify dimension of @VECTR_INIT_STATE provided by user.
@@ -161,6 +211,7 @@ class KalmanFilter():
         self.VECTR_STATE = np.copy(VECTR_INIT_STATE)
 
 
+    # Setter Method
     def set_initial_covariance(self, MAT_INIT_COVAR: np.matrix) -> None:
         '''
         Verify dimension of @MAT_INIT_COVAR wrt to @MAT_STATE_TRANSITION
@@ -181,6 +232,8 @@ class KalmanFilter():
                 Covariance Matrix must have the dimensions ({self._ROWS_STATE_VECTR}  x {self._ROWS_STATE_VECTR})")
             
         self.MAT_COVAR = np.copy(MAT_INIT_COVAR)
+
+    
 
 
 

@@ -8,24 +8,32 @@ class KalmanFilter():
     @Notes: 
     '''
     def __init__(self,
-                MAT_STATE_TRANSTN: np.array,
-                MAT_CNTRL: np.array,
-                MAT_OBSRVN: np.array,
-                MAT_PROCESS_NOISE: np.array,
-                MAT_MEAS_UNCERT: np.array):
+                MAT_STATE_TRANSTN: np.matrix,
+                MAT_CNTRL: np.matrix,
+                MAT_OBSRVN: np.matrix,
+                MAT_PROCESS_NOISE: np.matrix,
+                MAT_MEAS_UNCERT: np.matrix,
+                VECTR_INIT_STATE: np.array,
+                MAT_INIT_COVAR: np.matrix):
         '''
         Initialize the Kalman filter based on the minimum required parameters.
         
         :param @MAT_STATE_TRANSTN:          state transition matrix; relates current state to next during PREDICT
         :param @MAT_CNTRL:                  control matrix; realates current inputs to next state during PREDICT
         :param @MAT_OBSRVN:                 observation matrix; relates measurements (observations) to state variables during UPDATE                                    
-        :param @MAT_PROCESS_NOISE:          process noise; certainty in control inputs and process model
-        :param @MAT_MEAS_UNCERT:            measurement noise; certainty in observations 
+        :param @MAT_PROCESS_NOISE:          process noise; uncertainty in control inputs and process model
+        :param @MAT_MEAS_UNCERT:            measurement noise; uncertainty in observations 
+        :param @VECTR_INIT_STATE:           initial state vector, guessed or provided by a different process
+        :param @MAT_INIT_COVAR:             initial covariance matrix; uncertainty in initial state vector
         '''
+
         self.set_state_transition_mat(MAT_STATE_TRANSTN)    
         self.set_control_mat(MAT_CNTRL)
         self.set_observation_mat(MAT_OBSRVN)
         self.set_process_noise(MAT_PROCESS_NOISE)
+        self.set_measurement_uncertainty(MAT_MEAS_UNCERT)
+        self.set_initial_state(VECTR_INIT_STATE)
+        self.set_initial_covariance(MAT_INIT_COVAR)
 
     
 
@@ -138,6 +146,25 @@ class KalmanFilter():
         self._MAT_MEAS_UNCERT = MAT_MEAS_UNCERT
 
 
+    def set_initial_state(self, VECTR_INIT_STATE: np.array) -> None:
+        '''
+        Verify dimension of @VECTR_INIT_STATE.
+        Set initial state.
+
+        :param @VECTR_INIT_STATE:               @VECTR_INIT_STATE
+        '''
+
+        if not (VECTR_INIT_STATE.size == self._ROWS_STATE_VECTR) or (1 not in VECTR_INIT_STATE.shape):
+            raise InvalidVectorDimensions(f"State Vector must have dimension ({self._ROWS_STATE_VECTR} x 1); \
+                Current dimensions : ({VECTR_INIT_STATE.shape[0]}x{VECTR_INIT_STATE.shape[1]})")
+
+        self._VECTR_INIT_STATE = np.copy(VECTR_INIT_STATE)
+
+
+    def set_initial_covariance(self, MAT_INIT_COVAR: np.matrix) -> None:
+        pass
+
+
 class InvalidMatrixDimensions(Exception):
     '''
     Matrix dimensions not as expected. E.g. F must be square.
@@ -150,4 +177,7 @@ class InconsistentMatrixDimensions(Exception):
 
     E.g. if F is n x n   and G  is i x j, then n must equal i. 
     '''
+    pass
+
+class InvalidVectorDimensions(Exception):
     pass

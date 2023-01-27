@@ -8,46 +8,76 @@ class KalmanFilter():
     @Notes: 
     '''
     def __init__(self,
-                STATE_TRANSTN_MAT: np.array,
-                CONTROL_MAT: np.array,
-                OBSRVN_MAT: np.array,
-                PROCESS_NOISE: np.array,
-                MEAS_UNCERT: np.array):
+                MAT_STATE_TRANSTN: np.array,
+                MAT_CNTRL: np.array,
+                MAT_OBSRVN: np.array,
+                MAT_PROCESS_NOISE: np.array,
+                MAT_MEAS_UNCERTT: np.array):
         '''
         Initialize the Kalman filter based on the minimum required parameters.
         
-        :param @STATE_TRANSTN_MAT:      state transition matrix; relates current state to next during PREDICT
-        :param @CONTROL_MAT:            control matrix; realates current inputs to next state during PREDICT
-        :param @OBSRVN_MAT:             observation matrix; relates measurements (observations) to state variables during UPDATE                                    
-        :param @PROCESS_NOISE:          process noise; certainty in control inputs and process model
-        :param @MEAS_UNCER:             measurement noise; certainty in observations 
+        :param @MAT_STATE_TRANSTN:      state transition matrix; relates current state to next during PREDICT
+        :param @MAT_CNTRL:            CNTRL matrix; realates current inputs to next state during PREDICT
+        :param @MAT_OBSRVN:             observation matrix; relates measurements (observations) to state variables during UPDATE                                    
+        :param @MAT_PROCESS_NOISE:          process noise; certainty in CNTRL inputs and process model
+        :param @MAT_MEAS_UNCERT:             measurement noise; certainty in observations 
         '''
-        self.set_state_transition(STATE_TRANSTN_MAT)    
+        self.set_state_transition_mat(MAT_STATE_TRANSTN)    
+        self.set_control_mat(MAT_CNTRL)
 
     
 
     # Setter Method
-    def set_state_transition(self, STATE_TRANSTN_MAT : np.array) -> None:
+    def set_state_transition_mat(self, MAT_STATE_TRANSTN : np.matrix) -> None:
         '''
-        Extract the rows (n) in STATE VECTOR.
+        Extract # of rows (n) in STATE VECTOR.
         Check for Matrix dimensional consistency.
         Set STATE TRANSITION MATRIX.
 
-        :param @STATE_TRANSTN_MAT:       @STATE_TRANSTN_MAT
+        :param @MAT_STATE_TRANSTN:       @MAT_STATE_TRANSTN
         '''
-        _n = STATE_TRANSTN_MAT.shape[0]
-        _m = STATE_TRANSTN_MAT.shape[1]
+        _n = MAT_STATE_TRANSTN.shape[0]
+        _m = MAT_STATE_TRANSTN.shape[1]
 
         if(_n == _m):
-            self._STATE_TRANSTN_MAT = STATE_TRANSTN_MAT
-            self.STATE_VECTR_ROWS = _n
+            self._MAT_STATE_TRANSTN = MAT_STATE_TRANSTN
+            self._ROWS_STATE_VECTR = _n
             return
-        raise InvalidMatrixDimension(f"State Transtion (F) must be a square matrix. Current dimensions: {_n} x {_m}")
+        raise InvalidMatrixDimensions(f"State Transtion (F) must be a square matrix. Current dimensions: ({_n} x {_m})")
+    
+
+    # Setter Method 
+    def set_control_mat(self, MAT_CNTRL: np.matrix) -> None:
+        '''
+        Extrat # number of rows (n) in CONTROL VECTOR.
+        Check for matrix dimenaional consistency.
+        Set CONTROL MATRIX.
+
+        :param @MAT_CNTRL:              @MAT_CNTRL
+        '''
+        _n = MAT_CNTRL.shape[0]
+        _m = MAT_CNTRL.shape[1]
+
+        if(not _n == self._ROWS_STATE_VECTR):
+            raise InconsistentMatrixDimensions(f"Control Matrix dimensions ({_n} x {_m}), inconsistent \
+                 with state transition matrix ({self._ROWS_STATE_VECTR} x {self._ROWS_STATE_VECTR}).\n \
+                    Control Matrix must have the dimensions ({self._ROWS_STATE_VECTR } x m)")
+
+        self._MAT_CNTRL = MAT_CNTRL
+        self._ROWS_CNTRL_VECTR = _m
 
 
 
-
-
-class InvalidMatrixDimension(Exception):
+class InvalidMatrixDimensions(Exception):
+    '''
+    Matrix dimensions not as expected. E.g. F must be square.
+    '''
     pass
 
+class InconsistentMatrixDimensions(Exception):
+    '''
+    Matrix dimensions are inconsistent with other key matrix.
+
+    E.g. if F is n x n   and G  is i x j, then n = i. 
+    '''
+    pass

@@ -24,20 +24,25 @@ class KalmanFilter():
         '''
         self.set_state_transition(STATE_TRANSTN_MAT)    
 
-    # setter method
+    
+
+    # Setter Method
     def set_state_transition(self, STATE_TRANSTN_MAT : np.array) -> None:
         '''
-        Set the state transition matrix, extract the number of rows (n)
-        in STATE VECTOR to check for overall matrix dimension consistency
+        Extract the rows (n) in STATE VECTOR.
+        Check for Matrix dimensional consistency.
+        Set STATE TRANSITION MATRIX.
+
+        :param @STATE_TRANSTN_MAT:       @STATE_TRANSTN_MAT
         '''
         _n = STATE_TRANSTN_MAT.shape[0]
         _m = STATE_TRANSTN_MAT.shape[1]
 
         if(_n == _m):
             self._STATE_TRANSTN_MAT = STATE_TRANSTN_MAT
-            self.rows_state_vector = _n
+            self.STATE_VECTR_ROWS = _n
             return
-        raise InvalidMatrixDimension("State Transtion (F) must be a square matrix")
+        raise InvalidMatrixDimension(f"State Transtion (F) must be a square matrix. Current dimensions: {_n} x {_m}")
 
 
 

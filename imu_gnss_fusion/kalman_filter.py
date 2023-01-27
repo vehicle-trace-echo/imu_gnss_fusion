@@ -135,7 +135,7 @@ class KalmanFilter():
         _x = MAT_MEAS_UNCERT.shape[1]
 
         if(not _k == self._ROWS_STATE_VECTR):
-            raise InconsistentMatrixDimensions(f"Measurement Uncertainty Matrix dimensions ({_k} x {_x}), inconsistent \
+            raise InconsistentMatrixDimensions(f"Measurement Uncertainty Matrix dimensions ({_k} x {_x}), \inconsistent \
                 with observation matrix ({self._ROWS_MEAS_VECTR} x {self._ROWS_MEAS_VECTR}).\n \
                 Measurement Uncertainty Matrix must have the dimensions ({self._ROWS_MEAS_VECTR}  x {self._ROWS_MEAS_VECTR})")
 
@@ -148,7 +148,7 @@ class KalmanFilter():
 
     def set_initial_state(self, VECTR_INIT_STATE: np.array) -> None:
         '''
-        Verify dimension of @VECTR_INIT_STATE.
+        Verify dimension of @VECTR_INIT_STATE provided by user.
         Set initial state.
 
         :param @VECTR_INIT_STATE:               @VECTR_INIT_STATE
@@ -158,11 +158,30 @@ class KalmanFilter():
             raise InvalidVectorDimensions(f"State Vector must have dimension ({self._ROWS_STATE_VECTR} x 1); \
                 Current dimensions : ({VECTR_INIT_STATE.shape[0]}x{VECTR_INIT_STATE.shape[1]})")
 
-        self._VECTR_INIT_STATE = np.copy(VECTR_INIT_STATE)
+        self.VECTR_STATE = np.copy(VECTR_INIT_STATE)
 
 
     def set_initial_covariance(self, MAT_INIT_COVAR: np.matrix) -> None:
-        pass
+        '''
+        Verify dimension of @MAT_INIT_COVAR wrt to @MAT_STATE_TRANSITION
+        Set initial COVARIANCE Matrix
+
+        :param @MAT_INIT_COVAR:                 @MAT_INIT_COVAR
+        '''
+        _n = MAT_INIT_COVAR.shape[0]
+        _x = MAT_INIT_COVAR.shape[1]
+
+        if (not _n == _x):
+            raise InvalidMatrixDimensions(f"Covariance must be a square matrix.\
+                 Current dimensions: ({_n} x {_x})")
+
+        if(not _n == self._ROWS_STATE_VECTR):
+            raise InconsistentMatrixDimensions(f"Covariance Matrix dimensions ({_n} x {_x}), inconsistent \
+                with state transition matrix ({self._ROWS_STATE_VECTR} x {self._ROWS_STATE_VECTR}).\n \
+                Covariance Matrix must have the dimensions ({self._ROWS_STATE_VECTR}  x {self._ROWS_STATE_VECTR})")
+            
+        self.MAT_COVAR = np.copy(MAT_INIT_COVAR)
+
 
 
 class InvalidMatrixDimensions(Exception):

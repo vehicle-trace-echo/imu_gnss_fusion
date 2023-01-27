@@ -105,6 +105,8 @@ class KalmanFilter():
             self.set_measurement_uncertainty(kwargs['MAT_MEAS_UNCERT'])
 
         self.compute_kalman_gain()
+        self.update_state_estimate(VECTR_MEAS)
+        self.update_covar()
 
 
     def is_valid_meas_vectr(self, VECTR_MEAS: np.array) -> None:
@@ -121,16 +123,50 @@ class KalmanFilter():
         '''
         Compute the Kalman Gain
         '''
+        # P_(nxn) * H_(kxn)^T
         _PH_T = np.matmul(self.MAT_COVAR, self._MAT_OBSRVN.T)
+        # H_(kxn) * P_(nxn) * H_(kxn)^T
         _HPH_T = np.matmul(self._MAT_OBSRVN, _PH_T)
         self._KALMAN_GAIN = np.matmul(_PH_T,
                                     np.linalg.inv(
                                         _HPH_T + \
                                         self._MAT_MEAS_UNCERT
                                     ))
+
+    
+    def update_state_estimate(self, VECTR_MEAS):
+        '''
+        Update the state estimate using measurement and 
+        most recent kalman gain
+
+        :param @VECTR_MEAS:                 @VECTR_MEAS
+        '''
+        self.VECTR_STATE = self.VECTR_STATE +  \
+                        np.matmul(self._KALMAN_GAIN,
+                                    (VECTR_MEAS - \
+                                    np.matmul(self._MAT_OBSRVN,
+                                            self.VECTR_STATE)
+                                )                    
+                        )
         
+
+    def update_covar(self):
+        '''
+        Update the covariance matrix after state update
+        '''
+        # I_(nxn) * K_(nxk)^T
+        _I_KH = np.eye(self._ROWS_STATE_VECTR) -\
+                    np.matmul(self._KALMAN_GAIN , self._MAT_OBSRVN)
+        self.MAT_COVAR = np.matmul( np.matmul(_I_KH,
+                                             self.MAT_COVAR),
+                                    _I_KH.T) + \
+                        np.matmul(np.matmul(self._KALMAN_GAIN,
+                                            self._MAT_MEAS_UNCERT),
+                                    self._KALMAN_GAIN.T)
+    
+
     #
-    # ~~~~~             KALMAN FILTER - SETTERS             ~~~~~
+    # ~~~~~         KALMAN FILTER - SETTERS & GETTERS       ~~~~~
     # 
 
     # Setter Method

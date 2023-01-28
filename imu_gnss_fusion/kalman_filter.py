@@ -39,15 +39,26 @@ class KalmanFilter():
         self.set_initial_covariance(MAT_INIT_COVAR)
     
     @classmethod
-    def from_matrix_dimensions(self, 
+    def from_matrix_dimensions(cls, 
                                 ROWS_STATE_VECTR: int,
                                 ROWS_CNTRL_VECTR: int,
-                                ROWS_MEAS_VECTR: int
+                                ROWS_MEAS_VECTR: int, 
+                                MAT_PROCESS_NOISE: np.matrix,
+                                MAT_MEAS_UNCERT: np.matrix,
+                                VECTR_INIT_STATE: np.matrix,
+                                MAT_INIT_COVAR: np.matrix
                                 ):
         '''
         Alt constrcutor for KalmanFilter. Primarily for inherit compatibility with ExtendedKalmanFilter.
         '''
-        pass
+        return cls(MAT_STATE_TRANSTN=np.zeros((ROWS_STATE_VECTR, ROWS_STATE_VECTR)),
+                    MAT_CNTRL=np.zeros((ROWS_STATE_VECTR, ROWS_CNTRL_VECTR)),
+                    MAT_OBSRVN=np.zeros((ROWS_MEAS_VECTR, ROWS_STATE_VECTR)),
+                    MAT_PROCESS_NOISE=MAT_PROCESS_NOISE,
+                    MAT_MEAS_UNCERT=MAT_MEAS_UNCERT,
+                    VECTR_INIT_STATE=VECTR_INIT_STATE,
+                    MAT_INIT_COVAR=MAT_INIT_COVAR)
+
 
     #
     # ~~~~~             KALMAN FILTER - PREDICT              ~~~~~
@@ -268,7 +279,7 @@ class KalmanFilter():
 
 
         if hasattr(self, '_ROWS_MEAS_VECTR'):
-            
+
             if not (_k == self._ROWS_MEAS_VECTR):
                 raise InvalidMatrixDimensions(f"Observation Matrix dimensions ({_k} x {_n}), invalid. \
                     Must have dimensions ({self._ROWS_MEAS_VECTR} x {self._ROWS_STATE_VECTR})")

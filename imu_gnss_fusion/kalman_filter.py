@@ -7,6 +7,9 @@ class KalmanFilter():
     Linear Kalman Filter Implementation.
     @Notes: 
     '''
+    #
+    # ~~~~~             KALMAN FILTER - CONSTRUCTORS              ~~~~~
+    #     
     def __init__(self,
                 MAT_STATE_TRANSTN: np.matrix,
                 MAT_CNTRL: np.matrix,
@@ -34,7 +37,14 @@ class KalmanFilter():
         self.set_measurement_uncertainty(MAT_MEAS_UNCERT)
         self.set_initial_state(VECTR_INIT_STATE)
         self.set_initial_covariance(MAT_INIT_COVAR)
-
+    
+    @classmethod
+    def from_matrix_dimensions(self, 
+                                ROWS_STATE_VECTR: int,
+                                ROWS_CNTRL_VECTR: int,
+                                ROWS_MEAS_VECTR: int
+                                ):
+        pass
 
     #
     # ~~~~~             KALMAN FILTER - PREDICT              ~~~~~
@@ -181,12 +191,25 @@ class KalmanFilter():
         _n = MAT_STATE_TRANSTN.shape[0]
         _x = MAT_STATE_TRANSTN.shape[1]
 
-        if(_n == _x):
+        if(not _n == _x):
+            raise InvalidMatrixDimensions(f"State Transtion must be a square matrix. Current dimensions: ({_n} x {_x})")
+    
+        if not hasattr(self, '_ROWS_STATE_VECTR'):
+
             self._MAT_STATE_TRANSTN = np.copy(MAT_STATE_TRANSTN)
             self._ROWS_STATE_VECTR = _n
-            return
-        raise InvalidMatrixDimensions(f"State Transtion must be a square matrix. Current dimensions: ({_n} x {_x})")
-    
+
+        else:
+
+            if (not _n == self._ROWS_STATE_VECTR):
+                raise InconsistentMatrixDimensions(f"State Matrix dimensions ({_n} x {_x}), inconsistent. \
+                 Must have dimensions ({self._ROWS_STATE_VECTR} x {self._ROWS_STATE_VECTR})")
+            
+            self._MAT_STATE = np.copy(MAT_STATE_TRANSTN)
+            
+        
+        
+        
 
     # Setter Method 
     def set_control_mat(self, MAT_CNTRL: np.matrix) -> None:

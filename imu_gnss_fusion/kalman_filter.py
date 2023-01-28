@@ -44,6 +44,9 @@ class KalmanFilter():
                                 ROWS_CNTRL_VECTR: int,
                                 ROWS_MEAS_VECTR: int
                                 ):
+        '''
+        Alt constrcutor for KalmanFilter. Primarily for inherit compatibility with ExtendedKalmanFilter.
+        '''
         pass
 
     #
@@ -182,9 +185,9 @@ class KalmanFilter():
     # Setter Method
     def set_state_transition_mat(self, MAT_STATE_TRANSTN : np.matrix) -> None:
         '''
-        Extract # of rows (@ROWS_STATE_VECTR).
-        Check for sqaure matrix.
-        Set @MAT_STATE_TRANSTN.
+        Set the state transition matrix for the Kalman Filter.
+        This is done only once for Linear Kalman Filter, in EFK usecase, this will 
+        be called upon every lienarization (i.e each step).
 
         :param @MAT_STATE_TRANSTN:          @MAT_STATE_TRANSTN
         '''
@@ -193,22 +196,24 @@ class KalmanFilter():
 
         if(not _n == _x):
             raise InvalidMatrixDimensions(f"State Transtion must be a square matrix. Current dimensions: ({_n} x {_x})")
-    
-        if not hasattr(self, '_ROWS_STATE_VECTR'):
 
-            self._MAT_STATE_TRANSTN = np.copy(MAT_STATE_TRANSTN)
-            self._ROWS_STATE_VECTR = _n
-
-        else:
+        # Alt constructor support - init with ROWS_STATE_VECTOR
+        if hasattr(self, '_ROWS_STATE_VECTR'):
 
             if (not _n == self._ROWS_STATE_VECTR):
+
                 raise InconsistentMatrixDimensions(f"State Matrix dimensions ({_n} x {_x}), inconsistent. \
-                 Must have dimensions ({self._ROWS_STATE_VECTR} x {self._ROWS_STATE_VECTR})")
+                Must have dimensions ({self._ROWS_STATE_VECTR} x {self._ROWS_STATE_VECTR})")
             
-            self._MAT_STATE = np.copy(MAT_STATE_TRANSTN)
-            
-        
-        
+            # Alt constructor for use with EKF - note : @EKFRemovenpcopy
+            # Setter will be called alot, therefore remove "np.copy"
+            self._MAT_STATE = MAT_STATE_TRANSTN
+
+        # Default constructor path
+        else:
+            self._MAT_STATE_TRANSTN = np.copy(MAT_STATE_TRANSTN)
+            self._ROWS_STATE_VECTR = _n
+           
         
 
     # Setter Method 

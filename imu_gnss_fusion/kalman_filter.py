@@ -186,8 +186,11 @@ class KalmanFilter():
     def set_state_transition_mat(self, MAT_STATE_TRANSTN : np.matrix) -> None:
         '''
         Set the state transition matrix for the Kalman Filter.
+
         This is done only once for Linear Kalman Filter, in EFK usecase, this will 
         be called upon every lienarization (i.e each step).
+
+        Validate dimensions, and allow alternative contructor pathways 
 
         :param @MAT_STATE_TRANSTN:          @MAT_STATE_TRANSTN
         '''
@@ -202,16 +205,16 @@ class KalmanFilter():
 
             if (not _n == self._ROWS_STATE_VECTR):
 
-                raise InconsistentMatrixDimensions(f"State Matrix dimensions ({_n} x {_x}), inconsistent. \
+                raise InvalidMatrixDimensions(f"State Matrix dimensions ({_n} x {_x}), invalid. \
                 Must have dimensions ({self._ROWS_STATE_VECTR} x {self._ROWS_STATE_VECTR})")
             
-            # Alt constructor for use with EKF - note : @EKFRemovenpcopy
+            # Alt constructor for use with EKF 
             # Setter will be called alot, therefore remove "np.copy"
             self._MAT_STATE = MAT_STATE_TRANSTN
 
         # Default constructor path
         else:
-            self._MAT_STATE_TRANSTN = np.copy(MAT_STATE_TRANSTN)
+            self._MAT_STATE_TRANSTN = np.copy(MAT_STATE_TRANSTN) 
             self._ROWS_STATE_VECTR = _n
            
         
@@ -219,9 +222,9 @@ class KalmanFilter():
     # Setter Method 
     def set_control_mat(self, MAT_CNTRL: np.matrix) -> None:
         '''
-        Extract # number of rows (@ROWS_CNTRL_VECTR) 
-        Check for matrix dimensional consistency with @MAT_STATE_TRANSTN.
-        Set @MAT_CNTRL.
+        Set the control matrix for KF/EKF.
+
+        Validate dimensions, and allow alternative contructor pathways 
 
         :param @MAT_CNTRL:                  @MAT_CNTRL
         '''
@@ -233,16 +236,25 @@ class KalmanFilter():
                  with state transition matrix ({self._ROWS_STATE_VECTR} x {self._ROWS_STATE_VECTR}).\n \
                     Control matrix must have the dimensions ({self._ROWS_STATE_VECTR } x m)")
 
-        self._MAT_CNTRL = np.copy(MAT_CNTRL)
-        self._ROWS_CNTRL_VECTR = _m
+        if hasattr(self, '_ROWS_CNTRL_VECTR'):
+            
+            if (not _m == self._ROWS_CNTRL_VECTR):
+                raise InvalidMatrixDimensions(f"Control Matrix dimensions ({_n} x {_m}), invalid. \
+                    Must have dimensions ({self._ROWS_STATE_VECTR} x {self._ROWS_CNTRL_VECTR})")
+                
+            self._MAT_CNTRL = MAT_CNTRL
+
+        else:
+            self._MAT_CNTRL = np.copy(MAT_CNTRL)
+            self._ROWS_CNTRL_VECTR = _m
 
 
     # Setter Method
     def set_observation_mat(self, MAT_OBSRVN: np.matrix) -> None:
         '''
-        Extract # number of rows (@ROWS_MEAS_VECTR)
-        Check for matrix dimensional consistency with @MAT_STATE_TRANSTN
-        Set @MAT_OBSRVN
+        Set the observation matrix for KF/EKF.
+
+        Validate dimensions, and allow alternative contructor pathways 
 
         :param @MAT_OBSRVN:                 @MAT_OBSRVN
         '''
@@ -253,6 +265,16 @@ class KalmanFilter():
             raise InconsistentMatrixDimensions(f"Observation Matrix dimensions ({_k} x {_n}), inconsistent \
                  with state transition matrix ({self._ROWS_STATE_VECTR} x {self._ROWS_STATE_VECTR}).\n \
                     Observation Matrix must have the dimensions (k x {self._ROWS_STATE_VECTR })")
+
+
+        if hasattr(self, '_ROWS_MEAS_VECTR'):
+            
+            if not (_k == self._ROWS_MEAS_VECTR):
+                raise InvalidMatrixDimensions(f"Observation Matrix dimensions ({_k} x {_n}), invalid. \
+                    Must have dimensions ({self._ROWS_MEAS_VECTR} x {self._ROWS_STATE_VECTR})")
+
+            self._MAT_OBSRVN = MAT_OBSRVN
+
 
         self._MAT_OBSRVN = np.copy(MAT_OBSRVN)
         self._ROWS_MEAS_VECTR = _k

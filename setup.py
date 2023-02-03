@@ -6,7 +6,6 @@ setup(
     description='IMU/GNSS fusion using Extended Kalman Filter',
     author='Saurav Uprety',
     url='https://github.com/vehicle-trace-echo/imu_gnss_fusion',
-    install_requires=['numpy==1.23.4',
-                    'math'],
+    install_requires=['numpy==1.23.4',],
     packages=['imu_gnss_fusion'],
 )

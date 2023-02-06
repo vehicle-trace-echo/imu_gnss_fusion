@@ -1,6 +1,5 @@
-from imu_gnss_fusion.kalman_filter import KalmanFilter
+from imu_gnss_fusion.extended_kalman_filter import ExtendedKalmanFilter
 
 
-
-class IMUGNSSFusion():
+class IMUGNSSFusion(ExtendedKalmanFilter):
     pass

@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from kalman_filter import KalmanFilter
+from imu_gnss_fusion.kalman_filter import KalmanFilter
 
 
 class ExtendedKalmanFilter(KalmanFilter):
@@ -102,7 +102,7 @@ class ExtendedKalmanFilter(KalmanFilter):
                                 )
                             )
         self.extrapolate_covar()
-        self.VECTR_STATE = self._VECTR_STATE_NEXT.copy()
+        self.VECTR_STATE = self._VECTR_STATE_NEXT
 
 
 

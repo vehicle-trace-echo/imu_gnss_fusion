@@ -72,7 +72,7 @@ class KalmanFilter():
         '''
         self.is_valid_cntrl_vectr(VECTR_CNTRL)
         self.extrapolate_state(VECTR_CNTRL)
-        self.extrapolate_covar(VECTR_CNTRL)
+        self.extrapolate_covar()
 
 
     def is_valid_cntrl_vectr(self, VECTR_CNTRL: np.array)->None:
@@ -81,7 +81,8 @@ class KalmanFilter():
 
         :param @VECTR_CNTRL:                 @VECTR_CNTRL
         '''
-        if(not VECTR_CNTRL.size == self._ROWS_CNTRL_VECTR) or (1 not in VECTR_CNTRL.shape):
+        if(not VECTR_CNTRL.size == self._ROWS_CNTRL_VECTR) and (1 not in VECTR_CNTRL.shape) and \
+            (len(VECTR_CNTRL.shape) != 1):
             raise(InvalidVectorDimensions(f"Control Input Vector must have dimension ({self._ROWS_CNTRL_VECTR} x 1); \
                 Current dimensions : ({VECTR_CNTRL.shape[0]}x{VECTR_CNTRL.shape[1]})"))
         pass
@@ -125,7 +126,7 @@ class KalmanFilter():
         '''
         self.is_valid_meas_vectr(VECTR_MEAS)
 
-        if('MAT_MEAS_UNCERT' in kwargs.key()):
+        if('MAT_MEAS_UNCERT' in kwargs.keys()):
             self.set_measurement_uncertainty(kwargs['MAT_MEAS_UNCERT'])
 
         self.compute_kalman_gain()
@@ -137,7 +138,8 @@ class KalmanFilter():
         '''
         Raise exception is measurement vector  is dimensionally invalid
         '''
-        if(not VECTR_MEAS.size == self._ROWS_MEAS_VECTR) or (1 not in VECTR_MEAS.shape):
+        if(not VECTR_MEAS.size == self._ROWS_MEAS_VECTR) and (1 not in VECTR_MEAS.shape) and \
+            (len(VECTR_MEAS.size) == 1):
             raise(InvalidVectorDimensions(f"Measurement Vector must have dimension ({self._ROWS_CNTRL_VECTR} x 1); \
                 Current dimensions : ({VECTR_MEAS.shape[0]}x{VECTR_MEAS.shape[1]})"))
         pass
@@ -152,7 +154,7 @@ class KalmanFilter():
         # H_(kxn) * P_(nxn) * H_(kxn)^T
         _HPH_T = np.matmul(self._MAT_OBSRVN, _PH_T)
         self._KALMAN_GAIN = np.matmul(_PH_T,
-                                    np.linalg.inv(
+                                    np.linalg.pinv(
                                         _HPH_T + \
                                         self._MAT_MEAS_UNCERT
                                     ))
@@ -327,7 +329,7 @@ class KalmanFilter():
         _k = MAT_MEAS_UNCERT.shape[0]
         _x = MAT_MEAS_UNCERT.shape[1]
 
-        if(not _k == self._ROWS_STATE_VECTR):
+        if(not _k == self._ROWS_MEAS_VECTR):
             raise InconsistentMatrixDimensions(f"Measurement Uncertainty Matrix dimensions ({_k} x {_x}), \inconsistent \
                 with observation matrix ({self._ROWS_MEAS_VECTR} x {self._ROWS_MEAS_VECTR}).\n \
                 Measurement Uncertainty Matrix must have the dimensions ({self._ROWS_MEAS_VECTR}  x {self._ROWS_MEAS_VECTR})")
@@ -348,9 +350,10 @@ class KalmanFilter():
         :param @VECTR_INIT_STATE:               @VECTR_INIT_STATE
         '''
 
-        if not (VECTR_INIT_STATE.size == self._ROWS_STATE_VECTR) or (1 not in VECTR_INIT_STATE.shape):
+        if (VECTR_INIT_STATE.size != self._ROWS_STATE_VECTR) and (1 not in VECTR_INIT_STATE.shape) \
+            and (len(VECTR_INIT_STATE.size) != 1):
             raise InvalidVectorDimensions(f"State Vector must have dimension ({self._ROWS_STATE_VECTR} x 1); \
-                Current dimensions : ({VECTR_INIT_STATE.shape[0]}x{VECTR_INIT_STATE.shape[1]})")
+                Current dimensions : ({VECTR_INIT_STATE.shape})")
 
         self.VECTR_STATE = np.copy(VECTR_INIT_STATE)
 

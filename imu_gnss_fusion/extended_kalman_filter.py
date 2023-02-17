@@ -1,4 +1,3 @@
-import math
 import numpy as np
 from imu_gnss_fusion.kalman_filter import KalmanFilter
 

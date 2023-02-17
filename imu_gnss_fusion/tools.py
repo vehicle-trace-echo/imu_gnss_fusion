@@ -30,9 +30,9 @@ sxw, syw, szw               =   1, 1, 1
 
 
 
-Ta = np.array([1, -alfayz, alfazy],
+Ta = np.array([[1, -alfayz, alfazy],
                     [0, 1, -alfazx],
-                    [0, 0, 1])
+                    [0, 0, 1]])
 Tw = np.array([[1, -gamayz, gamazy],
                     [0, 1, -gamazx],
                     [0, 0, 1]])

@@ -23,7 +23,7 @@ class ComplementaryFilter():
     #Compute Accelerometer Angle for Roll & Pitch
     def accel_step(self, accelArr):
         self.theta = np.arcsin(accelArr[0]/ComplementaryFilter.g)#Pitch
-        self.phi = np.arctan2(accelArr[1], accelArr[2])#Roll
+        self.phi = np.arctan2(-1*accelArr[1], -1*accelArr[2])#Roll
 
     #Update Pitch and Roll
     def cf_update(self, accelArr, gyroArr):

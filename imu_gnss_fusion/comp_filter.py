@@ -3,7 +3,7 @@ class ComplementaryFilter():
     #Time Constant
     TAU = 0.1
     #Sampling Frequency
-    fs = 50
+    fs = 100
     #Delta T
     dt = 1/fs
     #Alpha
@@ -16,23 +16,30 @@ class ComplementaryFilter():
         self.pitch = pitchInit
 
     #Compute Gyro Angle for Roll & Pitch
-    def gyro_step(self,gx,gy):
-        self.roll += gx*ComplementaryFilter.dt
-        self.pitch += gy*ComplementaryFilter.dt
+    def gyro_step(self,gyroArr):
+        self.roll += gyroArr[0]*ComplementaryFilter.dt
+        self.pitch += gyroArr[1]*ComplementaryFilter.dt
 
     #Compute Accelerometer Angle for Roll & Pitch
-    def accel_step(self,ax,ay,az):
-        self.theta = np.arcsin(-ax/ComplementaryFilter.g)#Pitch
-        self.phi = np.arctan2(ay, az)#Roll
+    def accel_step(self, accelArr):
+        self.theta = np.arcsin(-accelArr[0]/ComplementaryFilter.g)#Pitch
+        self.phi = np.arctan2(accelArr[1], accelArr[2])#Roll
 
     #Update Pitch and Roll
-    def cf_update(self, ax, ay, az, gx, gy, gz):
+    def cf_update(self, accelArr, gyroArr):
 
-        self.gyro_step(gx, gy)
-        self.accel_step(ax, ay, az)
+        self.gyro_step(gyroArr)
+        self.accel_step(accelArr)
 
         self.rollLast = self.roll
         self.pitchLast = self.pitch
 
         self.roll = ((1-ComplementaryFilter.ALPHA)*self.phi) + (ComplementaryFilter.ALPHA*self.roll)
         self.pitch = ((1-ComplementaryFilter.ALPHA)*self.theta) + (ComplementaryFilter.ALPHA*self.pitch)
+
+    def cf_update_INS(self, accArr, pitch_INS,  roll_INS):
+
+        self.accel_step(accArr)
+        self.roll = ((1-ComplementaryFilter.ALPHA)*self.phi) + (ComplementaryFilter.ALPHA*roll_INS)
+        self.pitch = ((1-ComplementaryFilter.ALPHA)*self.theta) + (ComplementaryFilter.ALPHA*pitch_INS)
+        return self.pitch, self.roll

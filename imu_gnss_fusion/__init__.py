@@ -1,188 +1,22 @@
-from math import sin, cos, tan, sqrt, asin, atan2
-from math import rad as rad
+from math import sin, cos, tan, sqrt, asin, atan2, degrees
+from math import radians as rad
 import numpy as np
 from imu_gnss_fusion.extended_kalman_filter import ExtendedKalmanFilter
-
-
-class IMUGNSSFusion(ExtendedKalmanFilter):
-    RADIUS_EQTRL = 6378137.0            # Equitorial Radius of Ellipsoid (WGS84)
-    RADIUS_PLR = 6356752.3142           # Polar Radius of Ellipsoid      (WGS84)
-    FLTNING = 1 / 298.257223563         # Flattening                     (WGS84)
-    ECNTRCTY = 0.0818181908425          # Eccentricity                   (WGS84)
-    INS.RADIUS_MRIDNL = False
-    RADIUS_TRNVRS = False
-    TIME_INTRVL = False   
-    LOCAL_GRAV_MAGNTD = 9.8066     
-    
-
-    def __init__(self, lat_fix, long_fix, t):
-        IMUGNSSFusion.setMeridianCurvRadius(lat_fix, long_fix)
-        IMUGNSSFusion.setTransverseCurvRadius(lat_fix, long_fix)
-        IMUGNSSFusion.setTimeInterval(t)
-        pass
-
-    
-    @staticmethod
-    def evalJacobianAtState(STATE_NOW:np.ndarray, STATE_NXT:np.ndarray, INPUT_NOW: np.ndarray) ->np.ndarray:
-        '''
-        '''
-        t = IMUGNSSFusion.TIME_INTRVL
-        INS.RADIUS_MRIDNL = IMUGNSSFusion.INS.RADIUS_MRIDNL
-        INS.RADIUS_TRNVRS = IMUGNSSFusion.RADIUS_TRNVRS
-        g = IMUGNSSFusion.LOCAL_GRAV_MAGNTD
-
-        psi, vN, vE, vD, h, lat, long, bax, bay, baz,                \
-        bgx, bgy, bgz, alfayz, alfazy, alfazx,                      \
-        gamayz, gamazy, gamazx, sax, say, saz,                      \
-        sgx, sgy, sgz =                                             \
-            STATE_NOW[0], STATE_NOW[1], STATE_NOW[2], STATE_NOW[3], \
-            STATE_NOW[4], STATE_NOW[5], STATE_NOW[6], STATE_NOW[7], STATE_NOW[8], STATE_NOW[9], \
-            STATE_NOW[10], STATE_NOW[11], STATE_NOW[12], STATE_NOW[13], STATE_NOW[14], STATE_NOW[15], \
-            STATE_NOW[16], STATE_NOW[17], STATE_NOW[18], STATE_NOW[19], STATE_NOW[20], STATE_NOW[21],\
-            STATE_NOW[22], STATE_NOW[23], STATE_NOW[24]
-        
-        psin, vNn, vEn, vDn, hn, latn, longn, baxn, bayn, bazn,                \
-        bgxn, bgyn, bgzn, alfayzn, alfazyn, alfazxn,                      \
-        gamayzn, gamazyn, gamazxn, saxn, sayn, sazn,                      \
-        sgxn, sgyn, sgzn =                                             \
-            STATE_NXT[0], STATE_NXT[1], STATE_NXT[2], STATE_NXT[3], \
-            STATE_NXT[4], STATE_NXT[5], STATE_NXT[6], STATE_NXT[7], STATE_NXT[8], STATE_NXT[9], \
-            STATE_NXT[10], STATE_NXT[11], STATE_NXT[12], STATE_NXT[13], STATE_NXT[14], STATE_NXT[15], \
-            STATE_NXT[16], STATE_NXT[17], STATE_NXT[18], STATE_NXT[19], STATE_NXT[20], STATE_NXT[21],\
-            STATE_NXT[22], STATE_NXT[23], STATE_NXT[24]
-
-        ax, ay, az, gx, gy, gz, phi, theta, phin, thetan =  INPUT_NOW[0], INPUT_NOW[1], INPUT_NOW[2], INPUT_NOW[3], \
-            INPUT_NOW[4], INPUT_NOW[5], INPUT_NOW[6], INPUT_NOW[7], INPUT_NOW[8], INPUT_NOW[9], \
-        
-        axc, ayc, azc, gxc, gyc, gzx = None
-
-        JACOBN = np.eye(25)
-
-
-        # Zeroth Column
-        JACOBN[1,0] = t * (-sin(psi)*cos(theta)-sin(psin)*cos(thetan)) * \
-                        (axc - g*(sin(theta) + sin(thetan))/2) 
-
-        JACOBN[2,0] = t * (cos(psi)*cos(theta)+cos(psin)*cos(thetan)) * \
-                        (axc - g*(sin(theta) + sin(thetan))/2) 
-
-        JACOBN[5,0] = (t / (2 * INS.RADIUS_MRIDNL * hn)) * JACOBN[1,0] 
-
-        JACOBN[6,0] = (t / (2 * INS.RADIUS_TRNVRS )) * ( JACOBN[2,0] / (hn * cos(rad(latn)) )   + \
-                                    JACOBN[5,0] * vEn * sin(rad(latn)) / (hn * cos(rad(latn)**2) )
-                                    )
-        
-
-        # First Column
-        JACOBN[5,1] = (t / (2 * INS.RADIUS_MRIDNL)) * (1/hn + 1/h)
-        JACOBN[6,1] = t * JACOBN[5,1] * vEn * sin(rad(latn)) / (2 * INS.RADIUS_TRNVRS * hn * cos(rad(latn))**2)
-
-        # Second Column
-        JACOBN[6,2] =  ((t / (2 * INS.RADIUS_TRNVRS))) * (1 / (hn * cos(rad(latn))) + 1 / (h * cos(lat)) )
-
-        # Third Column
-        JACOBN[4,3] = -t
-        JACOBN[5,3] = t**2 * vNn / (2 * INS.RADIUS_MRIDNL * hn**2)
-        JACOBN[6,3] = (t / (2 * INS.RADIUS_TRNVRS)) *  ( t * vEn / (hn**2 * cos(rad(latn)) ) \
-                                     + JACOBN[5,3]*vEn*sin(rad(latn)) / (hn * cos(rad(latn))**2) 
-                                     )
-
-        # Fourth Column
-        JACOBN[5,4] = (t / (2 * INS.RADIUS_MRIDNL)) * (-vN /h**2 - vNn/hn**2)
-        JACOBN[6,4] = (t / (2 * INS.RADIUS_MRIDNL)) * ( JACOBN[5,4]*vEn * sin(rad(latn)) / (hn * cos(latn)**2) -\
-                                        vE / (h**2 * cos(rad(lat)) ) - \
-                                        vEn / (hn**2 * cos(rad(latn)) )
-                                        )
-
-        # Fifth Column
-        JACOBN[6,5] = (t / (2 * INS.RADIUS_MRIDNL)) * ( vE * sin(rad(lat)) / (h * cos(lat)**2 ) \
-                                        + vEn * sin(rad(latn)) / (hn * cos(latn)**2))
-        
-
-        # Seventh Column
-        JACOBN[1,7] = - t * sax * (cos(psi)*cos(theta) + cos(psin)*cos(thetan)) / 2
-        JACOBN[2,7] = - t * sax * (sin(psi)*cos(theta) + sin(psin)*cos(thetan)) / 2
-        JACOBN[3,7] = - t * sax * (-sin(theta) - sin(thetan))/2
-        JACOBN[4,7] = JACOBN[3,7] * -t/2
-        JACOBN[5,7] = (t / (2 * INS.RADIUS_MRIDNL)) * (JACOBN[1,7]/hn - (JACOBN[4,7]*vNn)/hn**2)
-        JACOBN[6,7] = (t / (2 * INS.RADIUS_TRNVRS)) * (JACOBN[2,7]/ ( hn * cos(rad(latn)))  - \
-                                        (JACOBN[4,7] * vEn / (hn**2 / cos(rad(latn)) )) + \
-                                        JACOBN[5,7] * vEn * sin(rad(latn)) / (hn * cos(rad(latn))**2 )
-                                        )
-                                        
-        # Eigth Column
-        JACOBN[1,8] = t * say * alfayz * (cos(psi)*cos(theta) + cos(psin)*cos(thetan)) / 2
-        JACOBN[2,8] = t * say * alfayz * (sin(psi)*cos(theta) + sin(psin)*cos(thetan)) / 2
-        JACOBN[3,8] = t * say * alfayz * (-sin(theta) - sin(thetan))/2
-        JACOBN[4,8] = JACOBN[3,8] * -t/2
-        JACOBN[5,8] = (t / (2 * INS.RADIUS_MRIDNL)) * (JACOBN[1,8]/hn - (JACOBN[3,8]*vNn)/(2*hn**2))
-
-        JACOBN[6,8] = (t / (2 * INS.RADIUS_TRNVRS)) * ((t * JACOBN[3,8] * vEn / (2 * hn**2 / cos(rad(latn)) )) + \
-                                        JACOBN[2,8]/ ( hn * cos(rad(latn)))  + \
-                                        JACOBN[5,8] * vEn * sin(rad(latn)) / (hn * cos(rad(latn))**2 )
-                                        ) 
-        
-        # Ninth Column
-        JACOBN[1,9] = - t * saz * alfazy * (cos(psi)*cos(theta) + cos(psin)*cos(thetan)) / 2
-        JACOBN[2,9] = - t * saz * alfazy * (sin(psi)*cos(theta) + sin(psin)*cos(thetan)) / 2
-        JACOBN[3,9] = - t * saz * alfazy * (-sin(theta) - sin(thetan))/2
-        JACOBN[4,9] = JACOBN[3,9] * -t/2
-        JACOBN[5,9] = (t / (2 * INS.RADIUS_MRIDNL)) * (JACOBN[1,9]/hn - (JACOBN[4,9]*vNn)/hn**2)
-
-        JACOBN[6,9] = (t / (2 * INS.RADIUS_TRNVRS)) * (JACOBN[2,9]/ ( hn * cos(rad(latn)))  - \
-                                        (JACOBN[4,9] * vEn / (hn**2 / cos(rad(latn)) )) + \
-                                        JACOBN[5,9] * vEn * sin(rad(latn)) / (hn * cos(rad(latn))**2 )
-                                        )
-
-
-
-    @staticmethod
-    def getMeridianCurvRadius(lat_fix, long_fix):
-        '''
-        Return R_n (Meridional Raidus of Curvature)
-        '''
-        return IMUGNSSFusion.RADIUS_EQTRL * (1-IMUGNSSFusion.ECNTRCTY**2) / \
-            (1 - IMUGNSSFusion.ECNTRCTY**2 *                    \
-            (sin(rad(lat_fix)))**2) ** (3/2)
-
-    @staticmethod
-    def getTransverseCurvRadius(lat_fix, long_fix):
-        '''
-        Return R_e (Transverse Radius of Curvature)
-        '''
-        return IMUGNSSFusion.RADIUS_EQTRL / sqrt(1-IMUGNSSFusion.ECNTRCTY**2 * \
-                (sin(rad(lat_fix)))**2)
-    
-    @classmethod
-    def setMeridianCurvRadius(cls, lat_fix, long_fix):
-        cls.INS.RADIUS_MRIDNL = cls.getMeridianCurvRadius(lat_fix, long_fix)
-
-    @classmethod
-    def setTransverseCurvRadius(cls, lat_fix, long_fix):
-        cls.RADIUS_PLR = cls.getTransverseCurvRadius(lat_fix, long_fix)
-
-    @classmethod
-    def setTimeInterval(cls, t):
-        cls.TIME_INTRVL = t
-
-    @classmethod 
-    def clearMeridianCurvRadius(cls):
-        cls.INS.RADIUS_MRIDNL = False
-
-    @classmethod 
-    def clearTransverseCurvRadius(cls):
-        cls.RADIUS_PLR = False
-
-    @classmethod
-    def clearTimeInterval(cls):
-        cls.TIME_INTRVL = False
-
-
 
 
 
 
 class INS():
+    '''
+    Inertial Navigation System (INS) mechanizes the IMU in the Local Navigation Frame.
+
+    INS works in parallel with and ES-EKF, for Atitude, velocity, and Position corrections, and
+    IMU biases.
+
+    The Mechanization is based on formulas found in 'Principles of GNSS, Inertial, and
+    Multisensor Integrated Navigation Systems' - Paul D Groves.
+    '''
+
     RADIUS_EQTRL = 6378137.0            # Equitorial Radius of Ellipsoid (WGS84)
     RADIUS_PLR = 6356752.3142           # Polar Radius of Ellipsoid      (WGS84)
     FLTNING = 1 / 298.257223563         # Flattening                     (WGS84)
@@ -191,101 +25,361 @@ class INS():
     RADIUS_MRIDNL = False               # RN
     RADIUS_TRNVRS = False               # RE  
     TIME_INTRVL = False   
-    LOCAL_GRAV_MAGNTD = 9.8066     
-    
-    '''
-    Inertial Navigation System (INS) mechanizes the IMU in the Local Navigation Frame.
+    LOCAL_GRAV_MAGNTD = 9.8066          
+    LOCAL_GRAV_VECTR = np.array([0, 0, LOCAL_GRAV_MAGNTD])
 
-    INS works in parallel with and ES-EKF, for Atitude, Veloctiy, Position corrections, and
-    IMU biases.
 
-    The Mechanization is based on formulas found in 'Principles of GNSS, Inertial, and
-    Multisensor Integrated Navigation Systems' - Paul D Groves.
-    '''
+
+
     def __init__(self, init_atitude: np.ndarray,
-                    init_velocity: np.ndarray,
-                    init_position: np.ndarray,
-                    init_bias_accel: np.ndarray,
-                    init_bias_gyro:np.ndarray,
-                    sample_rate: int):
+            init_velocity: np.ndarray,
+            init_position: np.ndarray,
+            init_bias_accel: np.ndarray,
+            init_bias_gyro:np.ndarray,
+            sample_rate: int):
+        '''
+        Initialize the INS in Local Navigation Frame.
+        Meridional and Transverse radii of curvature approx constant after the init position fix.
+
+            :param @init_atitude         
+                    <brief>             initial atitude (Euler Angles wrt. Local Nav Frame)
+                    <origin>            Pitch and Roll from Leveling process, Yaw from aligned GNSS recievers.              
+                    <order>             Roll, Pitch, Yaw
+                    <units>             Radians
+
+            :param @init_velocity       
+                    <brief>             intial velocity wrt. Local Navigation frame
+                    <origin>            initial velocity should be zeros; Calibration then Leveling precede INS init       
+                    <order>             VelocityNorth, VelocityEast,  VelocityDown 
+                    <units>             Meters Per Seconds
+
+            :param @init_position       
+                    <brief>             initial position in Geographic Coordinate System 
+                    <origin>            GNSS static position during Calibration and Leveling
+                    <order>             Ellipsoidal Height, Latitude, Longitude
+                    <units>             Meters, Decimal Degreees, Decimal Degrees
+
+            :param @init_bias_accel     
+                    <brief>             accelerometer biases
+                    <origin>            IMU Calibration
+                    <order>             bias_ax, bias_ay, bias_az (x, y, z of body frame)
+                    <units>             Meters per squared Seconds
+
+            :param @init_gyro_accel     
+                    <brief>             Gyroscope biases
+                    <origin>            IMU Calibration
+                    <order>             bias_gx, bias_gy, bias_gz (x, y, z of body frame)
+                    <units>             Radians per Seconds
+
+            :param @sample_rate
+                    <brief>             IMU data rate (hz)
+                    <origin>            
+                    <order>             
+                    <units>             
+                    <notes>             Might make this class variable at 100 hz
+        '''
         INS.setMeridianCurvRadius(init_position[1], init_position[2])
         INS.setTransverseCurvRadius(init_position[1], init_position[2])
         INS.setTimeInterval(1/sample_rate)
 
-        self.init_states(init_atitude,
-                    init_velocity,
-                    init_position,
-                    init_bias_accel,
-                    init_bias_gyro)
-        self.init_nexts()
-
-
-    def init_states(self, init_atitude: np.ndarray,
-                    init_velocity: np.ndarray,
-                    init_position: np.ndarray,
-                    init_bias_accel: np.ndarray,
-                    init_bias_gyro:np.ndarray):
-        self.atitude = init_atitude
-        self.coord_trnsfrm = INS.get_coord_transfrm_frm_atitude(init_atitude)
-        self.veloctiy = init_velocity
+        self.atitude = init_atitude                                                 # Current Navigation solutions
+        self.coord_trnsfrm = INS.get_coord_transfrm_frm_atitude(init_atitude)       # Euler angles to 
+        self.velocity = init_velocity
         self.position = init_position
-        self.bias_accel = init_bias_accel
+        self.bias_accel = init_bias_accel                               # Current IMU biases
         self.bias_gyro = init_bias_gyro
-    
 
-    def init_nexts(self):
-        self.next_atitude = np.zeros(3)
-        self.coord_trnsfrm = np.zeros((3,3))
-        self.next_velocity = np.zeros(3)
-        self.next_position = np.zeros(3)
-        self.next_bias_accel = np.zeros(3)
-        self.next_bais_gyro = np.zeros(3)
+            
 
 
-    def init_crrctns(self):
-        self.atitude_crrctn = np.zeros(3)
-        self.velocity_crrctn = np.zeros(3)
-        self.position_crrctn = np.zeros(3)
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  MAIN APIs   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    def INS_UpdateStates(self,
+            acc_vectr:np.ndarray,
+            gyro_vectr:np.ndarray):
+        ''' 
+        Upate INS states on IMU data ready
+            :param  @gyro_vectr        
+                <brief>             Vector containing latest accelerometer readings
+                <origin>            IMU            
+                <order>             ax, ay, az  (Body Frame)
+                <units>             Meters per sqaured Seconds
 
-    def update_atitude(
-                self,
-                acc_vectr:np.ndarray,
-                gyro_vectr:np.ndarray,
-                comp_filter=None, 
-                )->np.ndarray:
+            :param  @gyro_vectr        
+                <brief>             Vector containing latest gyroscope readings
+                <origin>            IMU            
+                <order>             gx, gy, gz  (Body Frame)
+                <units>             Radians per Seconds
+        '''
+        # Some parameters reused across updates
+        self.lat_rad = rad(self.position[1])                                    # Latitude in Radians                        
+        self.earth_rot_mat = INS.get_local_earth_rot(self.lat_rad)                # Earth rotation rate in Local Nav Frame
+                                                                                # And
+        self.trnsprt_mat = INS.get_local_trnsprt_rate(self.position[0], self.lat_rad,  # Local Navigation Frame transport rate        
+                                          self.velocity[0], self.velocity[1])   # based on current soltuions
+        # Update States
+        self.update_atitude(acc_vectr, gyro_vectr)
+        self.update_velocity(acc_vectr, gyro_vectr)
+        self.update_position()
+        self.INS_ResetNexts()
         
-        self.lat_rad = rad(self.position[1])
-        
+
+
+    def INS_ResetNexts(self):
+        '''INS_Update tracks current and next solutions;
+        update current to next, and reset next'''
+
+        self.atitude = self.next_atitude                                                           
+        self.coord_trnsfrm = self.next_coord_trnsfrm
+        self.velocity = self.next_velocity
+        self.position = self.next_position
+        # del self.next_atitude, self.next_velocity, self.next_position, self.next_coord_trnsfrm
+
+
+
+    def INS_Correct(self, atitude_crrctn:np.ndarray,
+                    velocity_crrctn: np.ndarray,
+                    position_crrctn: np.ndarray):
+         '''
+         Apply corrections to INS solutions based on solution from ES-EKF
+
+            :param  @atitude_crrctn        
+                <brief>             Vector atitude correction
+                <origin>            ES-EKF            
+                <order>             delRoll, delPitch, delYaw
+                <units>             Radians
+                <notes>             'del' represents the variational operator
+
+            :param  @velocity_crrctn        
+                <brief>             Vector velocity correction
+                <origin>            ES-EKF            
+                <order>             delVelocityNorth, delVelocityEast, delVelocityDown
+                <units>             Meters per Seconds
+                <notes>             'del' represents the variational operator
+
+            :param  @position_crrctn        
+                <brief>             Vector position correction
+                <origin>            ES-EKF            
+                <order>             delHeight, delLatitude, delLongitude
+                <units>             Meters, Decimal Degreees, Decimal Degrees
+                <notes>             'del' represents the variational operator
+         '''
+         self.coord_trnsfrm = np.matmul(                                                            # Apply atitude crrctn (small angle approx)
+                                (np.eye(3) - INS.get_skew_sym_mat(atitude_crrctn)),                 # to coord trnsfrm soln
+                                    self.coord_trnsfrm)
+         self.atitude = INS.get_attitude_frm_coord_trnsfrm(self.next_coord_trnsfrm)                 # crrctd atitude from crrted coord trnsfrm  
+         
+         self.velocity = self.velocity - velocity_crrctn
+         self.position = self.position - position_crrctn
+
+
+
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Atitude Update  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def update_atitude(self,
+            acc_vectr:np.ndarray,
+            gyro_vectr:np.ndarray,
+            comp_filter=None, 
+            )->np.ndarray:
+        '''
+        <brief>         Update Atitude for INS based on latest IMU readings.
+
+        <background>    Orientation of INS tracked with Euler Angles (self.atitude vector).
+                        INS math uses coordinate transform (rotation) matrix (self.coord_trnsfrm) based on Euler angles.
+                        Gyroscope readings in body frame (vehicle's) while solutions tracked in Local Nav Frame (NED).
+                        Conversion of gyro readings to changes in Euler Angles Frame through Diff. Eqn (DE). 
+                        DE in terms of the matrix; soln for which is first approxed, then atitude is extracted.
+
+        <notes>         Need both vector and matrix as INS math relies on matrix, while corrections for ESEKF in terms of 
+                        vector. 
+        '''
         self.next_coord_trnsfrm = self.updt_coord_trnsfrm(gyro_vectr)                               # Get next coodinate transform matrix
-        self.next_coord_trnsfrm = np.matmul(
-                                (np.eye(3) - INS.get_skew_sym_mat(self.atitude_corectn_vectr)),     # Apply atitude correction (small angle approx)
-                                    self.coord_trnsfrm_mat)
-        self.next_atitude = INS.get_attitude_frm_coord_trnsfrm(self.next_coord_trnsfrm)             # Get corrected atitude       
+
+        self.next_atitude = INS.get_attitude_frm_coord_trnsfrm(self.next_coord_trnsfrm)             # crrctd atitude from crrted coord trnsfrm        
+        
     
 
     def updt_coord_trnsfrm(self,
             gyro_vectr:np.ndarray):
+        
+        ''' 
+        Returns the next orientation matrix based on gyroscope readings and current orientation
+        Solution  based on a fourth-order approx. to ODE relating Euler Rates to Body Rates.
+        '''
+        atitude_updt_mat = self.get_atitude_updt_mat(gyro_vectr)
+
+        return np.matmul(self.coord_trnsfrm, atitude_updt_mat) - \
+                (np.matmul((self.earth_rot_mat+self.trnsprt_mat), self.coord_trnsfrm) * INS.TIME_INTRVL)
+
+
+
+    def get_atitude_updt_mat(self, gyro_vectr:np.ndarray)->np.ndarray:
+        '''
+        <brief>             Matrix converting current orientation matrix to the next orientation matrix.
+
+        <background>        Intuitive to visualze solving atitude update DE as applying a rotation from last solution to 
+                            the next. 
+                            This rotation matrix is calculated here.
+
+        '''
+        self.atitude_incrmnt_mat = INS.get_atitude_incrment_mat(gyro_vectr)  
+                 
+        self.atitude_incrmnt_norm =  np.linalg.norm(INS.get_atitude_incrmnt_vectr(gyro_vectr))
+
+        return np.eye(3) + \
+            ((1 - self.atitude_incrmnt_norm**2 / 6) * self.atitude_incrmnt_mat) + \
+            ((1 - self.atitude_incrmnt_norm**2 / 24) * np.matmul(self.atitude_incrmnt_mat, self.atitude_incrmnt_mat))
     
-        atitude_updt_mat = INS.get_atitude_updt_mat(gyro_vectr)
-        earth_rot_mat = INS.get_earth_rot_mat(self.lat_rat)
-        trnsprt_mat = INS.get_trnsprt_mat(self.position[0], self.lat_rad,
-                                          self.velocity[0], self.velocity[1])
-        return np.matmul(self.coord_trnsfrm_mat, atitude_updt_mat) - \
-                (np.matmul((earth_rot_mat+trnsprt_mat), self.coord_trnsfrm_mat) * INS.TIME_INTRVL)
+
+
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Velocity Update  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def update_velocity(self, 
+            accel_vectr: np.ndarray,
+            gyro_vectr: np.ndarray
+            ):
+        '''
+        <brief>             Update velocity based on last solutions and IMU update
+
+        <background>        Velocity of Body in Local Navigation Frame is with respect to Earth Centered Earth Fixed (ECEF) 
+                            (Local Navigation and Body frame coincide, hence velocity body wrt local nav. is zero).
+
+                            IMU reads Specifc Force (Acceleration - Gravity) in body frame.
+                            Specific Force in Navigation Frame required; it is related to Body Frame specific force and 
+                            instantaneous Coordinate Transformation Matrix.
+                            Instantaenous Coordiante Transfrom cannot be achieved hence, and average across INS.TIME_INTRVL 
+                            is approxed. 
+
+                            Using current orientation, gravity is resolved in body frame.
+
+                            Component of Gravity in the forward direction (x) is taken away form IMU reading to get only acceleration.
+
+        <notes>             Only acceleration in the x-axis is assumed to cause changes in velocity (kinematic constraints of cars)
+        
+        '''
+        grav_vectr_body = self.get_grav_vectr_body(gyro_vectr)
+        modf_accel_vectr = np.array([accel_vectr[0]+grav_vectr_body[0],0, 0])           # Ax with Gravitational effect removed
+
+        accel_nav = self.get_spcfc_force_nav(modf_accel_vectr, gyro_vectr)              # Acceleration in Local Nav
+                                                                                        # Calculate next veloctioy
+        self.next_velocity = self.velocity +  \
+                                (accel_nav  - \
+                                np.matmul(
+                                    (self.trnsprt_mat + 2 * self.earth_rot_mat), 
+                                    self.velocity)) * INS.TIME_INTRVL
+    
+
+    def get_grav_vectr_body(self,
+                        gyro_vectr:np.ndarray):
+        '''
+        Resolve gravity vector into body frame using the average 
+        coordinate transform matrix (nav to body) over INS.TIME_INTRVAL
+        '''
+        return np.matmul(self.get_avg_coord_trnsfrm(
+                                    self.coord_trnsfrm.T,
+                                    gyro_vectr
+                            ), INS.LOCAL_GRAV_VECTR
+                         )
+
+
+    def get_spcfc_force_nav(self, 
+            accel_vectr: np.ndarray,
+            gyro_vectr:np.ndarray):
+        '''
+        Convert IMU read accelerometer readings from Body to Local Nav. Frame using 
+        '''
+        return np.matmul(self.get_avg_coord_trnsfrm(
+                                self.coord_trnsfrm,
+                                gyro_vectr), 
+                            accel_vectr)
+
+
+
+    def get_avg_coord_trnsfrm(self,
+                coord_trnsfrm:np.ndarray,
+                gyro_vectr:np.ndarray):
+        '''
+        <brief>             Integral average (4th order-approx) of instantaneous coordinate transformation matrix for a INS.TIME_INTRVL
+        '''
+        return np.matmul(
+                        coord_trnsfrm, 
+                        self.get_avg_atitude_updt_mat(gyro_vectr)
+                        )               \
+                    -                   \
+                0.5 * np.matmul(
+                    (self.earth_rot_mat + self.trnsprt_mat), 
+                    coord_trnsfrm
+                    ) *  INS.TIME_INTRVL
+
+
+
+    def get_avg_atitude_updt_mat(self, gyro_vectr:np.ndarray)->np.ndarray:
+        '''
+        Fourth Order apprximation of average transformation matrix 
+        '''
+        return np.eye(3) + \
+            0.0416667 * ((12 - self.atitude_incrmnt_norm**2) * self.atitude_incrmnt_mat) + \
+            0.008333333 * ((1 - self.atitude_incrmnt_norm**2) * np.matmul(self.atitude_incrmnt_mat, self.atitude_incrmnt_mat))
+
+
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Position Update  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def update_position(self):
+
+        next_height = INS.update_height(self.position[0], self.velocity[2], self.next_velocity[2])             # height, vel_D, next_vel_D
+
+        next_lat = INS.update_latitude(self.position[0], next_height, self.position[1],                        # height, next_height, latitude,
+                                        self.velocity[0], self.next_velocity[0])                               # vel_N, next_vel_N
+        
+        next_long = INS.update_longitude(self.position[0], next_height,                                        # height, next_height, 
+                                          self.position[1], next_lat,                                          # latitude, next_latitude
+                                          self.position[2],                                                     # longitude 
+                                        self.velocity[1], self.next_velocity[1])                               # vel_E, next_vel_E 
+
+        self.next_position =  np.array([next_height, next_lat, next_long])
+        
 
 
     @staticmethod
-    def get_atitude_updt_mat(gyro_vectr:np.ndarray)->np.ndarray:
-        '''
-        Fourth order approximation solver for Euler Rates (transformation matrix) from Gyro rates
-        '''
-        atitude_incrmnt_norm =  np.linalg.norm(INS.get_atitude_incrmnt_vectr(gyro_vectr))
-        atitude_incrmnt_mat = INS.get_atitude_incrment_mat(gyro_vectr)
-        return np.eye(3) + \
-            ((1 - atitude_incrmnt_norm**2 / 6) * atitude_incrmnt_mat) + \
-            ((1 - atitude_incrmnt_norm**2 / 24) * np.matmul(atitude_incrmnt_mat, atitude_incrmnt_mat))
+    def update_height(height, vel_d, next_vel_d):
+        ''' Return next height solution'''
+        return height - INS.TIME_INTRVL * (vel_d + next_vel_d)
     
+
+
+    @staticmethod
+    def update_latitude(height, next_height, lat, vel_n, next_vel_n):
+        ''' Return next latitude soltuion'''
+        return lat + degrees(INS.TIME_INTRVL / 2 * (\
+                    vel_n/(INS.RADIUS_MRIDNL  + height) + \
+                    next_vel_n/(INS.RADIUS_MRIDNL  + next_height)
+            ))
+
+
+    @staticmethod
+    def update_longitude(height, next_height, lat, next_lat, long, vel_e, next_vel_e):
+        ''' Return next logitude soltuon '''
+        return long + degrees(INS.TIME_INTRVL / 2 * (\
+                vel_e/((INS.RADIUS_TRNVRS+ height) * cos(rad(lat))) + \
+                next_vel_e/((INS.RADIUS_TRNVRS+ + next_height) * cos(rad(next_lat)))
+            ))
+
+
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Math Preliminaries ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     @staticmethod
     def get_skew_sym_mat(vector):
@@ -301,13 +395,15 @@ class INS():
                             [vector[2], 0, -vector[0]], 
                             [-vector[1], vector[0], 0]])
     
+
+
     @staticmethod
     def get_unskewed(mat):
         '''
         Return the vector corresponding to a skew symmetric matrix
         '''
         return np.array([mat[2,1], mat[0,2], mat[1,0]])
-
+    
 
 
     @staticmethod
@@ -341,12 +437,51 @@ class INS():
                     ],
                     [-sin(pitch), sin(roll)*cos(pitch), cos(roll)*cos(pitch)]]).T
     
+
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   Misc.  Functions   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    @staticmethod
+    def get_atitude_incrmnt_vectr(gyro_vectr:np.ndarray)->np.ndarray:
+        '''
+        <brief>             Return, as a vector, increment in atitude in body frame over INS.TIME_INTRVL 
+                            from gyro reading .
+
+        <notes>             Gyroscope readings are assumed to be constant through INS.TIME_INTRVL
+        '''
+        return INS.TIME_INTRVL * gyro_vectr
+
+
+
+    @staticmethod
+    def get_atitude_incrment_mat(gyro_vectr:np.ndarray)->np.ndarray:
+        '''
+        <brief>             Return, as a skew-symmetric matrix, increment in atitude in body frame over 
+                            INS.TIME_INTRVL from gyro reading .
+
+        <notes>             Gyroscope readings are assumed to be constant through INS.TIME_INTRVL
+        '''
+        return INS.TIME_INTRVL * INS.get_skew_sym_mat(gyro_vectr)
+    
+
+
     @staticmethod
     def get_local_earth_rot(lat_rad: float) -> np.ndarray:
+        '''
+        <brief>             returns the rotation speed of the earth about its axis resolved in the 
+                            local navigation frame
+        '''
         return INS.EATH_ROTN_RATE * INS.get_skew_sym_mat(np.array([cos(lat_rad), 0, -sin(lat_rad)]))
     
+
+
     @staticmethod
     def get_local_trnsprt_rate(height:float, lat_rad:float, vel_n:float, vel_e:float)->np.ndarray:
+        '''
+        <breif>             returns rotation of the local navigation frame wrt to the earth centre
+        '''
         return INS.get_skew_sym_mat(
                 np.array([
                     vel_e / (INS.RADIUS_TRNVRS * lat_rad + height),
@@ -354,36 +489,61 @@ class INS():
                     -vel_e * tan(lat_rad) / (INS.RADIUS_TRNVRS * lat_rad + height)
                             ])
                     )
-    
-    @staticmethod
-    def get_atitude_incrmnt_vectr(gyro_vectr:np.ndarray)->np.ndarray:
-        return INS.TIME_INTRVL * gyro_vectr
+
+
+
 
     @staticmethod
-    def get_atitude_incrment_mat(gyro_vectr:np.ndarray)->np.ndarray:
-        return INS.TIME_INTRVL * INS.get_skew_sym_mat(gyro_vectr)
-    
+    def getMeridianCurvRadius(lat_fix, long_fix):
+        '''
+        Return R_n (Meridional Raidus of Curvature)
+        '''
+        return INS.RADIUS_EQTRL * (1-INS.ECNTRCTY**2) / \
+            (1 - INS.ECNTRCTY**2 *                    \
+            (sin(rad(lat_fix)))**2) ** (3/2)
+
+
+
+
+    @staticmethod
+    def getTransverseCurvRadius(lat_fix, long_fix):
+        '''
+        Return R_e (Transverse Radius of Curvature)
+        '''
+        return INS.RADIUS_EQTRL / sqrt(1-INS.ECNTRCTY**2 * \
+                (sin(rad(lat_fix)))**2)
+
 
 
     @classmethod
     def setMeridianCurvRadius(cls, lat_fix, long_fix):
-        cls.INS.RADIUS_MRIDNL = cls.getMeridianCurvRadius(lat_fix, long_fix)
+        cls.RADIUS_MRIDNL = cls.getMeridianCurvRadius(lat_fix, long_fix)
+
+
 
     @classmethod
     def setTransverseCurvRadius(cls, lat_fix, long_fix):
-        cls.RADIUS_PLR = cls.getTransverseCurvRadius(lat_fix, long_fix)
+        cls.RADIUS_TRNVRS = cls.getTransverseCurvRadius(lat_fix, long_fix)
+
+
 
     @classmethod
     def setTimeInterval(cls, t):
         cls.TIME_INTRVL = t
 
+
+
     @classmethod 
     def clearMeridianCurvRadius(cls):
         cls.INS.RADIUS_MRIDNL = False
 
+
+
     @classmethod 
     def clearTransverseCurvRadius(cls):
-        cls.RADIUS_PLR = False
+        cls.RADIUS_TRNVRS = False
+
+
 
     @classmethod
     def clearTimeInterval(cls):

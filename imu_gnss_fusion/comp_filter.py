@@ -1,7 +1,7 @@
 import numpy as np
 class ComplementaryFilter():
     #Time Constant
-    TAU = 0.1
+    TAU = 1
     #Sampling Frequency
     fs = 100
     #Delta T

@@ -1,9 +1,6 @@
 from math import sin, cos, tan, sqrt, asin, atan2, degrees, pi
 from math import radians as rad
 import numpy as np
-from imu_gnss_fusion.extended_kalman_filter import ExtendedKalmanFilter
-
-
 
 
 class INS():

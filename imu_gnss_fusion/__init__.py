@@ -1,4 +1,4 @@
-from math import sin, cos, tan, sqrt, asin, atan2, degrees
+from math import sin, cos, tan, sqrt, asin, atan2, degrees, pi
 from math import radians as rad
 import numpy as np
 from imu_gnss_fusion.extended_kalman_filter import ExtendedKalmanFilter
@@ -380,6 +380,12 @@ class INS():
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Math Preliminaries ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    @staticmethod
+    def heading_to_yaw(heading_rads):
+        if heading_rads  < pi:
+            return heading_rads
+        else:
+            return -1* (2*pi - heading_rads)
 
     @staticmethod
     def get_skew_sym_mat(vector):
@@ -411,9 +417,9 @@ class INS():
         '''
         Calcuate Euler Angles given a coordiante transformation matrix
         '''
-        roll = atan2(coord_trnsfrm_mat[1,2],coord_trnsfrm_mat[2,2])
-        pitch = -asin(coord_trnsfrm_mat[0,2])
-        yaw = atan2(coord_trnsfrm_mat[0,1], coord_trnsfrm_mat[0,0])
+        roll = atan2(coord_trnsfrm_mat[2,1],coord_trnsfrm_mat[2,2])
+        pitch = -asin(coord_trnsfrm_mat[2,0])
+        yaw = atan2(coord_trnsfrm_mat[1,0], coord_trnsfrm_mat[0,0])
         return np.array([roll, pitch, yaw])
 
 
@@ -435,7 +441,7 @@ class INS():
                     (cos(roll)*cos(yaw) + sin(roll)*sin(pitch)*sin(yaw)), 
                     (-sin(roll)*cos(yaw) + cos(roll)*sin(pitch)*sin(yaw))
                     ],
-                    [-sin(pitch), sin(roll)*cos(pitch), cos(roll)*cos(pitch)]]).T
+                    [-sin(pitch), sin(roll)*cos(pitch), cos(roll)*cos(pitch)]])
     
 
 

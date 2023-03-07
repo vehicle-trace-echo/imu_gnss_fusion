@@ -442,6 +442,16 @@ class INS():
     
 
 
+    @staticmethod
+    def cartsn_to_curvilin_pos(posn_vectr,
+                               lat_rad, height):
+        return np.matmul(np.array([
+                                [1/(INS.RADIUS_MRIDNL + height), 0, 0],
+                                [0,     1/((INS.RADIUS_TRNVRS + height)*cos(lat_rad)),0]
+                                [0,     0,  -1]]), posn_vectr)
+
+
+
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   Misc.  Functions   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

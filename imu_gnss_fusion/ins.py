@@ -95,7 +95,8 @@ class INS():
 
     def INS_UpdateStates(self,
             acc_vectr:np.ndarray,
-            gyro_vectr:np.ndarray):
+            gyro_vectr:np.ndarray,
+            comp_filter = None):
         ''' 
         Upate INS states on IMU data ready
             :param  @gyro_vectr        
@@ -117,7 +118,7 @@ class INS():
         self.trnsprt_mat = INS.get_local_trnsprt_rate(self.position[0], self.lat_rad,  # Local Navigation Frame transport rate        
                                           self.velocity[0], self.velocity[1])   # based on current soltuions
         # Update States
-        self.update_atitude(acc_vectr, gyro_vectr)
+        self.update_atitude(acc_vectr, gyro_vectr, comp_filter)
         self.update_velocity(acc_vectr, gyro_vectr)
         self.update_position()
         self.INS_ResetNexts()
@@ -181,7 +182,7 @@ class INS():
     def update_atitude(self,
             acc_vectr:np.ndarray,
             gyro_vectr:np.ndarray,
-            comp_filter=None, 
+            comp_filter
             )->np.ndarray:
         '''
         <brief>         Update Atitude for INS based on latest IMU readings.
@@ -198,7 +199,11 @@ class INS():
         self.next_coord_trnsfrm = self.updt_coord_trnsfrm(gyro_vectr)                               # Get next coodinate transform matrix
 
         self.next_atitude = INS.get_attitude_frm_coord_trnsfrm(self.next_coord_trnsfrm)             # crrctd atitude from crrted coord trnsfrm        
-        
+               
+        if comp_filter:
+            self.next_atitude[1], self.next_atitude[0] =  comp_filter.cf_update_INS(acc_vectr, self.next_atitude[1], self.next_atitude[0])
+            self.next_coord_trnsfrm = INS.get_coord_transfrm_frm_atitude(self.next_atitude)
+            
     
 
     def updt_coord_trnsfrm(self,
@@ -208,9 +213,9 @@ class INS():
         Returns the next orientation matrix based on gyroscope readings and current orientation
         Solution  based on a fourth-order approx. to ODE relating Euler Rates to Body Rates.
         '''
-        atitude_updt_mat = self.get_atitude_updt_mat(gyro_vectr)
+        self.atitude_updt_mat = self.get_atitude_updt_mat(gyro_vectr)
 
-        return np.matmul(self.coord_trnsfrm, atitude_updt_mat) - \
+        return np.matmul(self.coord_trnsfrm, self.atitude_updt_mat) - \
                 (np.matmul((self.earth_rot_mat+self.trnsprt_mat), self.coord_trnsfrm) * INS.TIME_INTRVL)
 
 
@@ -225,9 +230,7 @@ class INS():
 
         '''
         self.atitude_incrmnt_mat = INS.get_atitude_incrment_mat(gyro_vectr)  
-                 
         self.atitude_incrmnt_norm =  np.linalg.norm(INS.get_atitude_incrmnt_vectr(gyro_vectr))
-
         return np.eye(3) + \
             ((1 - self.atitude_incrmnt_norm**2 / 6) * self.atitude_incrmnt_mat) + \
             ((1 - self.atitude_incrmnt_norm**2 / 24) * np.matmul(self.atitude_incrmnt_mat, self.atitude_incrmnt_mat))
@@ -265,13 +268,14 @@ class INS():
         grav_vectr_body = self.get_grav_vectr_body(gyro_vectr)
         modf_accel_vectr = np.array([accel_vectr[0]+grav_vectr_body[0],0, 0])           # Ax with Gravitational effect removed
 
-        accel_nav = self.get_spcfc_force_nav(modf_accel_vectr, gyro_vectr)              # Acceleration in Local Nav
-                                                                                        # Calculate next veloctioy
-        self.next_velocity = self.velocity +  \
-                                (accel_nav  - \
+        self.spcfc_force_nav = self.get_spcfc_force_nav(modf_accel_vectr, gyro_vectr)         # Acceleration in Local Nav
+        # print(self.spcfc_force_nav, grav_vectr_body)                                                                                # Calculate next veloctioy
+        self.next_velocity = np.matmul((self.atitude_updt_mat), self.velocity) +  \
+                                ((self.spcfc_force_nav) - \
                                 np.matmul(
                                     (self.trnsprt_mat + 2 * self.earth_rot_mat), 
                                     self.velocity)) * INS.TIME_INTRVL
+        # print(np.matmul(self.updt_coord_trnsfrm(gyro_vectr).T, self.next_velocity))
     
 
     def get_grav_vectr_body(self,
@@ -447,8 +451,9 @@ class INS():
                                lat_rad, height):
         return np.matmul(np.array([
                                 [1/(INS.RADIUS_MRIDNL + height), 0, 0],
-                                [0,     1/((INS.RADIUS_TRNVRS + height)*cos(lat_rad)),0]
-                                [0,     0,  -1]]), posn_vectr)
+                                [0,     1/((INS.RADIUS_TRNVRS + height)*cos(lat_rad)),0],
+                                [0,     0,  -1]]), 
+                        posn_vectr)
 
 
 
@@ -497,9 +502,9 @@ class INS():
         '''
         return INS.get_skew_sym_mat(
                 np.array([
-                    vel_e / (INS.RADIUS_TRNVRS * lat_rad + height),
-                    -vel_n / (INS.RADIUS_MRIDNL * lat_rad + height),
-                    -vel_e * tan(lat_rad) / (INS.RADIUS_TRNVRS * lat_rad + height)
+                    vel_e / (INS.RADIUS_TRNVRS + height),
+                    -vel_n / (INS.RADIUS_MRIDNL  + height),
+                    -vel_e * tan(lat_rad) / (INS.RADIUS_TRNVRS + height)
                             ])
                     )
 

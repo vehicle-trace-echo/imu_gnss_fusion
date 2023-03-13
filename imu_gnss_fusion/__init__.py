@@ -1,7 +1,11 @@
-from math import sin, cos, tan, sec, sqrt, asin, atan2, degrees, pi
+from math import sin, cos, tan, sqrt, asin, atan2, degrees, pi
 from math import radians as rad
-from ins import INS
-from imu import IMU
+try:
+    from ins import INS
+    from imu import IMU
+except ImportError:
+    from imu_gnss_fusion.ins import INS
+    from imu_gnss_fusion.imu import IMU
 import numpy as np
 
 
@@ -44,27 +48,30 @@ class ImuGnssEsEKF():
                     raw_accel_vectr: np.ndarray,
                     raw_gyro_vectr:np.ndarray):
         
-        self.ins.accel_vectr = IMU.calibrate_accel(IMU.normalize_accel(raw_accel_vectr))
-        self.ins.gyro_vectr = IMU.calibrate_gyro(IMU.normalize_gyro(raw_gyro_vectr))
+        self.accel_vectr = IMU.calibrate_accel(IMU.normalize_accel(raw_accel_vectr))
+        self.gyro_vectr = np.radians(IMU.calibrate_gyro((IMU.normalize_gyro(raw_gyro_vectr))))
 
-        self.ins.INS_UpdateStates()
+        self.ins.INS_UpdateStates(self.accel_vectr, self.gyro_vectr)
 
-        self.ins.INS_Correct(self.atitude_crrctn, 
-                            self.velocity_crrctn,
-                            self.position_crrctn) 
+        self.ins.INS_Correct(self.state_vectr[:3],self.state_vectr[3:6], self.state_vectr[6:9]) 
+        self.init_state_vectr(self.state_vectr[9:12], self.state_vectr[12:])
+
+        self.EsEKF_extrapolate_state()
+        self.EsEKF_extrapolate_covar()
+
              
 
     
     def EsEKF_extrapolate_state(self):
-        self.update_state_trnstn_mat(self.ins.accel_vectr, self.ins.gyro_vectr)
+        self.update_state_trnstn_mat()
         self.state_vectr = np.matmul(self.state_trnsntn_mat, self.state_vectr) 
 
     
 
     def EsEKF_extrapolate_covar(self):
-        self.covar_mat = np.matmul(np.matmul(self.state_trnsntn_matself,
+        self.covar_mat = np.matmul(np.matmul(self.state_trnsntn_mat,
                                              self.covar_mat),
-                                    self.state_trnsntn_mat
+                                    self.state_trnsntn_mat.T
                                     ) + self.procss_noise
         
             
@@ -76,37 +83,36 @@ class ImuGnssEsEKF():
         self.EsEKF_compute_innovatn(measmnt_vectr)
         self.EsEKF_update_state()
         self.EsEKF_update_covar()
-    
+        # self.ins.INS_Correct(self.state_vectr[:3],self.state_vectr[3:6], self.state_vectr[6:9])
+        self.init_state_vectr(self.state_vectr[9:12], self.state_vectr[12:])
+
 
 
     def EsEKF_compute_k_gain(self, measmnt_uncrt_mat:np.ndarray):
 
-        PH = np.matmul(self.measmnt_mat, self.covar_mat)
-        HPH = np.matmul(PH, self.measmnt_mat)
-        self.kalman_gain = np.matmul(PH.T, 
+        PH_T = np.matmul(self.covar_mat, self.measmnt_mat.T)
+        HPH_T = np.matmul(self.measmnt_mat, PH_T)
+        self.kalman_gain = np.matmul(PH_T, 
                                 np.linalg.pinv(
-                                        HPH.T + measmnt_uncrt_mat
+                                        HPH_T + measmnt_uncrt_mat
                                         )
                                         )
         
     
 
     def EsEKF_compute_innovatn(self, measmnt_vectr:np.ndarray):
-        self.velocity_innovatn = measmnt_vectr[:3] - self.ins.velocity \
-                            - np.matmul(self.ins.coord_trnsfrm, 
-                                        np.linalg.cross(self.ins.gyro_vectr,
-                                                        self.lever_arm)) \
-                            + np.matmul(
-                                    np.matmul((self.ins.earth_rot_mat + self.ins.trnsprt_mat), 
-                                        np.matmul(self.ins.coord_trnsfrm,
-                                            self.lever_arm)
-                                    )
-                            )
-        
+        # self.velocity_innovatn = measmnt_vectr[:3] - self.ins.velocity \
+        #                     - np.matmul(self.ins.coord_trnsfrm, 
+        #                                 np.cross(self.gyro_vectr,
+        #                                                 self.lever_arm)) \
+        #                     + np.matmul((self.ins.earth_rot_mat + self.ins.trnsprt_mat), 
+        #                                 np.matmul(self.ins.coord_trnsfrm, self.lever_arm)
+        #                             )
+                                 
         self.position_innovatn = measmnt_vectr[3:] - self.ins.position \
-                    - self.ins.cartsn_to_curvilin_trnsfrm(
+                    - self.ins.cartsn_to_curvilin_pos(
                         np.matmul(self.ins.coord_trnsfrm, 
-                                    self.lever_arm))
+                                    self.lever_arm), self.ins.lat_rad, self.ins.position[0])
         
         self.innovatn_vectr = np.append(self.velocity_innovatn, self.position_innovatn)
 
@@ -130,7 +136,7 @@ class ImuGnssEsEKF():
 
     def update_state_trnstn_mat(self)->np.ndarray:
         
-        F11 = -1 * INS.get_skew_sym_mat(self.ins.gyro_vectr)
+        F11 = -1 * INS.get_skew_sym_mat(self.gyro_vectr)
 
         F12 = np.array([[0,     
                     -1/(self.ins.RADIUS_TRNVRS  + self.ins.position[0]),     
@@ -156,13 +162,14 @@ class ImuGnssEsEKF():
                 -1 * self.ins.velocity[0] * F12[1,0]**2
                 ],          
                 [self.ins.EATH_ROTN_RATE * cos(self.ins.lat_rad) \
-                 + F12[0,1] * self.ins.velocity[1] / cos(self.ins.lat_rad)**2, 
+                 + self.ins.velocity[1] *  -F12[0,1] / cos(self.ins.lat_rad)**2, 
                 0,
                 self.ins.velocity[1]  *  F12[2,1] * F12[0,1]
                 ]
             ])
+        
         # Car Kinematic constraint not applied!
-        F21 = -1 * INS.get_skew_sym_mat(np.matmul(self.ins.coord_trnsfrm, self.ins.accel_vectr))
+        F21 = -1 * INS.get_skew_sym_mat(self.ins.accel_nav)
 
         F22 =  np.array([
                 [self.ins.velocity[2]/F12[1,0],    
@@ -179,12 +186,12 @@ class ImuGnssEsEKF():
                  ]
             ])
         F23 = np.array([
-                [self.ins.velocity[1]**2 * sec(self.ins.lat_rad)**2 * F12[0,1] \
+                [self.ins.velocity[1]**2 * (1/cos(self.ins.lat_rad))**2 * F12[0,1] \
                  - 2 * self.ins.velocity[1] *  self.ins.EATH_ROTN_RATE * cos(self.ins.lat_rad),
                 0,
                 F13[2,2] * -1 * self.ins.velocity[1] + F13[1,2] * self.ins.velocity[2]            
                 ],
-                [self.ins.velocity[0]* self.ins.velocity[1] * sec(self.ins.lat_rad)**2 * F12[0,1] \
+                [self.ins.velocity[0]* self.ins.velocity[1] * (1/cos(self.ins.lat_rad))**2 * F12[0,1] \
                  + 2 * self.ins.velocity[0] *  self.ins.EATH_ROTN_RATE * cos(self.ins.lat_rad) \
                 - 2 * self.ins.velocity[2] * F13[0,0],
                 0,
@@ -226,18 +233,18 @@ class ImuGnssEsEKF():
             ])
         
         self.state_trnsntn_mat = np.eye(15)
-        self.state_trnsntn_mat[:3, :3] = self.state_trnsntn_mat[:3, :3] + F11 * self.ins.TIME_INTRVL
+        self.state_trnsntn_mat[:3, :3] = np.eye(3) + F11 * self.ins.TIME_INTRVL
         self.state_trnsntn_mat[:3, 3:6] = F12 * self.ins.TIME_INTRVL
         self.state_trnsntn_mat[:3, 6:9] = F13 * self.ins.TIME_INTRVL
         self.state_trnsntn_mat[:3, 12:] = self.ins.coord_trnsfrm * self.ins.TIME_INTRVL
 
-        self.state_trnsntn_mat[3:6, :3] =  F21 * self.ins.TIME_INTRVL
-        self.state_trnsntn_mat[3:6, 3:6] = self.state_trnsntn_mat[3:6, 3:6] + F22 * self.ins.TIME_INTRVL
+        # self.state_trnsntn_mat[3:6, :3] =  F21 * self.ins.TIME_INTRVL
+        # self.state_trnsntn_mat[3:6, 3:6] = np.eye(3) + F22 * self.ins.TIME_INTRVL
         self.state_trnsntn_mat[3:6, 6:9] = F23 * self.ins.TIME_INTRVL
         self.state_trnsntn_mat[9:12, 9:12] = self.ins.coord_trnsfrm * self.ins.TIME_INTRVL
 
         self.state_trnsntn_mat[6:9, 3:6] = self.state_trnsntn_mat[6:9, 3:6] * self.ins.TIME_INTRVL
-        self.state_trnsntn_mat[6:9, 6:9] = self.state_trnsntn_mat[6:9, 6:9] + F33 * self.ins.TIME_INTRVL
+        self.state_trnsntn_mat[6:9, 6:9] = np.eye(3) + F33 * self.ins.TIME_INTRVL
 
 
 
@@ -251,7 +258,7 @@ class ImuGnssEsEKF():
     
 
     def init_covar_mat(self):
-        self.covar_mat = np.eye(15)
+        self.covar_mat = 10e-5 * np.eye(15)
                 
 
 

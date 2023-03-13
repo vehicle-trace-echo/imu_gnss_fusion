@@ -2,8 +2,8 @@ GRAV_MAGNTD = 9.8066
 
 IMU_CFG = {
     'range' : {
-        'imu_max': '32767',
-        'imu_min': '-32768',
+        'imu_max': 32767,
+        'imu_min': -32768,
         'units': 'ADC'
              },  
 

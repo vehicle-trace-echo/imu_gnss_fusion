@@ -1,5 +1,8 @@
 import numpy as np
-from config import GRAV_MAGNTD, IMU_CFG
+try: # Regular import
+    from imu_gnss_fusion.config import GRAV_MAGNTD, IMU_CFG
+except ImportError: # Import in debug mode
+    from config import GRAV_MAGNTD, IMU_CFG
 
 
 class IMUDataHandler():

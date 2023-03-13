@@ -2,10 +2,10 @@ from math import sin, cos, tan, sqrt, asin, atan2, degrees, pi
 from math import radians as rad
 try:
     from ins import INS
-    from imu import IMU
+    from imu import IMUDataHandler as IMU
 except ImportError:
     from imu_gnss_fusion.ins import INS
-    from imu_gnss_fusion.imu import IMU
+    from imu_gnss_fusion.imu import IMUDataHandler as IMU
 import numpy as np
 
 

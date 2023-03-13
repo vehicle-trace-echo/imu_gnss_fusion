@@ -2,7 +2,17 @@ import numpy as np
 from config import GRAV_MAGNTD, IMU_CFG
 
 
-class IMU():
+class IMUDataHandler():
+    '''
+    IMU Data handler class.
+
+    Methods and constants for dealing with IMU data directly
+    from the sensor. This includes:
+        - Conversion of ADC data to Pysical values
+        - Calibration of raw sensor reading to remove some 
+            deterministic errors
+    '''
+
     # IMU data read through 16-bit signed A/D converter
     IMU_MAX = IMU_CFG['range']['imu_max']
     IMU_MIN = IMU_CFG['range']['imu_min']
@@ -80,9 +90,9 @@ class IMU():
         Given raw readings from ICM20948 16 bit ADC, convert bitfield to
         physical readings (m/s^2 for accel and degrees/s for gyro).
         '''
-        accelNorm = IMU.GRAV_MAGNTD * ((np.array([ax, ay, az]) - IMU.IMU_MIN) \
-                    / IMU.IMU_RANGE * IMU.ACCEL_RANGE + IMU.ACCEL_MIN)
-        gyroNorm =  (np.array([gx, gy, gz]) - IMU.IMU_MIN) / IMU.IMU_RANGE * IMU.GYRO_RANGE + IMU.GYRO_MIN
+        accelNorm = IMUDataHandler.GRAV_MAGNTD * ((np.array([ax, ay, az]) - IMUDataHandler.IMU_MIN) \
+                    / IMUDataHandler.IMU_RANGE * IMUDataHandler.ACCEL_RANGE + IMUDataHandler.ACCEL_MIN)
+        gyroNorm =  (np.array([gx, gy, gz]) - IMUDataHandler.IMU_MIN) / IMUDataHandler.IMU_RANGE * IMUDataHandler.GYRO_RANGE + IMUDataHandler.GYRO_MIN
         return np.concatenate((accelNorm, gyroNorm))
     
 
@@ -92,8 +102,8 @@ class IMU():
         '''
         Given raw readings for accelerometer only, convert 16 bit ADC readings to m/s^2
         '''
-        return IMU.GRAV_MAGNTD * ((rawAccelArr - IMU.IMU_MIN) \
-                    / IMU.IMU_RANGE * IMU.ACCEL_RANGE + IMU.ACCEL_MIN)
+        return IMUDataHandler.GRAV_MAGNTD * ((rawAccelArr - IMUDataHandler.IMU_MIN) \
+                    / IMUDataHandler.IMU_RANGE * IMUDataHandler.ACCEL_RANGE + IMUDataHandler.ACCEL_MIN)
     
 
 
@@ -102,7 +112,7 @@ class IMU():
         '''
         Given raw readings for gyroscope only, convert 16 bit ADC readings to degrees/s
         '''
-        return (rawGyroArr - IMU.IMU_MIN) / IMU.IMU_RANGE * IMU.GYRO_RANGE + IMU.GYRO_MIN
+        return (rawGyroArr - IMUDataHandler.IMU_MIN) / IMUDataHandler.IMU_RANGE * IMUDataHandler.GYRO_RANGE + IMUDataHandler.GYRO_MIN
     
 
     @staticmethod
@@ -110,7 +120,7 @@ class IMU():
         '''
         Calibrate accelerometer readings to remove deterministic errors
         '''
-        return np.matmul(np.matmul(IMU.Ta, IMU.Ka), (accelArr - biasArr))
+        return np.matmul(np.matmul(IMUDataHandler.Ta, IMUDataHandler.Ka), (accelArr - biasArr))
     
 
     @staticmethod
@@ -118,4 +128,4 @@ class IMU():
         '''
         Calibrate gyroscope readings to remove deterministic errors
         '''
-        return np.matmul(np.matmul(IMU.Tw, IMU.Kw), (gyroArr - biasArr))
+        return np.matmul(np.matmul(IMUDataHandler.Tw, IMUDataHandler.Kw), (gyroArr - biasArr))
